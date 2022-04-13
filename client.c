@@ -63,13 +63,13 @@ char purpose_req[20] = "{\"group\":\"Servers\"}";
 void sender()
 {
     strcpy(SessionKeyReq.Sender,sender_req);
-    memset(SessionKeyReq.Sender_len, strlen(SessionKeyReq.Sender),1);
+    memset(SessionKeyReq.Sender_len, sizeof(SessionKeyReq.Sender),1);
 }
 
 void purpose()
 {
     strcpy(SessionKeyReq.Purpose , purpose_req);
-    memset(SessionKeyReq.Purpose_len,strlen(SessionKeyReq.Purpose),1);
+    memset(SessionKeyReq.Purpose_len,sizeof(SessionKeyReq.Purpose),1);
     }
 void numkey()
 {
@@ -122,10 +122,10 @@ void serializeSessionkeyReq()
         memcpy(buf,SessionKeyReq.Entity_nonce, NONCE_SIZE); //Entity_nonce
         memcpy(buf+NONCE_SIZE,SessionKeyReq.Auth_nonce,NONCE_SIZE); //Auth_nonce
         memcpy(buf+NONCE_SIZE*2,SessionKeyReq.NumKeys,NUMKEY); // Key_num 4byte
-        memcpy(buf+NONCE_SIZE*2+NUMKEY,SessionKeyReq.Purpose_len,1); // Key_num 4byte
-        memcpy(buf+NONCE_SIZE*2+NUMKEY+1,SessionKeyReq.Purpose,20); // Key_num 4byte
-        memcpy(buf+NONCE_SIZE*2+NUMKEY+1+20,SessionKeyReq.Sender_len,1); // Key_num 4byte
-        memcpy(buf+NONCE_SIZE*2+NUMKEY+1+20+1,SessionKeyReq.Sender,20); // Key_num 4byte
+        memcpy(buf+NONCE_SIZE*2+NUMKEY,SessionKeyReq.Sender_len,1); // Key_num 4byte
+        memcpy(buf+NONCE_SIZE*2+NUMKEY+1,SessionKeyReq.Sender,20); // Key_num 4byte
+        memcpy(buf+NONCE_SIZE*2+NUMKEY+1+20,SessionKeyReq.Purpose_len,1); // Key_num 4byte
+        memcpy(buf+NONCE_SIZE*2+NUMKEY+1+20+1,SessionKeyReq.Purpose,20); // Key_num 4byte
         
     printf("-- Serialize한 내용 -- \n");
         for(int i=0; i<sizeof(buf);i++)
@@ -202,14 +202,14 @@ RSA * createRSA(unsigned char * key,int public)
 int public_encrypt(unsigned char * data,int data_len, unsigned char *encrypted) 
 {
     char publickey[] = "-----BEGIN PUBLIC KEY-----\n"\
-    "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuAJDrpSYEr0RBFy//uab\n"\
-    "c/umf7AodGPHt5mjpKxaJql4Exj1uXkBQoOJVU1P1ZTluO2QZ+bHxoZg0RKbrzOq\n"\
-    "upjCKfidVMQ0wn4u1nc5//Kh29ku6K9/YCcRHK2q+YDLg8JQivYVMCp7aYCQY3RC\n"\
-    "jj65H2CFOhaJHRl80jk+4/gGCqONrgkou5oD/tykOjwPvLRzkm05IwYNULuVtvFO\n"\
-    "5+QZnsebx/LrOboryXWGigOuA2wfmA4o3r41ndGbEYyh6dGjt8gw6iRmTbn+8dyT\n"\
-    "jvFH3sgYYUhKZXy0jxqvVSQlg8QIh2/cy0mLSrwWVdA5Ck25MabAXfwYA8amwJLK\n"\
-    "+wIDAQAB\n"\
-    "-----END PUBLIC KEY-----\n";
+                        "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAskwWR+7ve/hG/+DDszfN\n"\
+                        "DpfUl8hy52udLAUofQZgNkCxH3xkmqoTrlYD/kZBMgpVNU6MWvNZsNsoI9uWHVf3\n"\
+                        "2AHa66rThjNu63zuhKeAoKfI0DWtVXD3f6eZJPy2T3spZFNCS5U++ghVKb1HYR9n\n"\
+                        "5ctOus8i27w0b+iuAkUuNUHsNicZTf7+/5REdID6hG0TJaHP+a6I+JPR/POoDeeT\n"\
+                        "G0FK5F+bhoy5Zf8om42QDMvBP0JexYIKclOngnKQ9QjrfuoF7a8oE8F9p1YqbfJb\n"\
+                        "IUt21Hel584Qbx9DlF5FvWXxMxdZ5dEkXIYcbagLvvoKqhxbjIPJeOoGIEA9JwdW\n"\
+                        "+wIDAQAB\n"\
+                        "-----END PUBLIC KEY-----\n";
 
     RSA * rsa = createRSA(publickey,1);
     int result = RSA_public_encrypt(data_len,data,encrypted,rsa,padding);
@@ -219,32 +219,32 @@ int public_encrypt(unsigned char * data,int data_len, unsigned char *encrypted)
 int private_decrypt(unsigned char * enc_data,int data_len, unsigned char *decrypted)
 {
     char privatekey[] = "-----BEGIN RSA PRIVATE KEY-----\n"\
-            "MIIEpgIBAAKCAQEAuAJDrpSYEr0RBFy//uabc/umf7AodGPHt5mjpKxaJql4Exj1\n"\
-            "uXkBQoOJVU1P1ZTluO2QZ+bHxoZg0RKbrzOqupjCKfidVMQ0wn4u1nc5//Kh29ku\n"\
-            "6K9/YCcRHK2q+YDLg8JQivYVMCp7aYCQY3RCjj65H2CFOhaJHRl80jk+4/gGCqON\n"\
-            "rgkou5oD/tykOjwPvLRzkm05IwYNULuVtvFO5+QZnsebx/LrOboryXWGigOuA2wf\n"\
-            "mA4o3r41ndGbEYyh6dGjt8gw6iRmTbn+8dyTjvFH3sgYYUhKZXy0jxqvVSQlg8QI\n"\
-            "h2/cy0mLSrwWVdA5Ck25MabAXfwYA8amwJLK+wIDAQABAoIBAQCn3Jj1yGS6o3PE\n"\
-            "sQANfz5NHkMTtRYSp3voR+Z7MSfEoVECywBPRM4baXd9M9wikYTHoSDdSDDzMF9e\n"\
-            "G0WfHNkhBH4MX9rXG26uBwKfb4Cfty5lKsmaR49BniIEMYIJvq7p8fgb7MYDfJ28\n"\
-            "7yXJNKQKs7mZoCmphilrPHccKFDxESPda5+Yffsvqx9cnlHDA7DWTmChhLT9DYWW\n"\
-            "LpfQ9/dRhccwd0HwVnjySOc0LSDAAShwmz6FtImokkSEyeMBcZsFTimRTnhY0Wcz\n"\
-            "ldbq+3w2zXHzLdu1PGd1BwD9CQTI5zmaQYIafjcn+xAKSuv42LdffajCvPVzafqt\n"\
-            "HW0WiTXxAoGBAOE/YIh8bMtuEcEBvvpYbtfh3NZLrnZ5fYgC7KRrywT8QWeqPBbF\n"\
-            "cdO6aejDDwWICDJ58NyQiu2Ye9T7kjUuyXILFwoFS9uUPFaQORZrkTvf2kRlN8Yq\n"\
-            "VYCTfzT2Py/EdrEBS7gOLBBr2qxY0pWJ9XgvArneJ/yJTWAxJa0GYysPAoGBANEh\n"\
-            "jboqSCyixpov728lLz/hFIIRwTUelzsQoJPl1M1enjaTDUlJetw/yY3gkoSvc+FW\n"\
-            "PJHFJ7h9oATQ4FBrRJ6Ud2m7s0N3PyojcYizKKL1jhC81XZMUsckaDIaNvp5aNJw\n"\
-            "w4DvyZxExdZDkrllXh0dSCLN+hnjOfUv1DztnpFVAoGBANc8WGITg2Jgq1Zi9LsE\n"\
-            "BecETKH5b5yGOw3cvYPf/P+mjFkisoiP41UOrGVe/tuqQSr6ms4o0Jh5PNsoCW4I\n"\
-            "ZzYyorFQnkwUOhP9fI+P+hfcsBTrI4CYs1tJliRlqbtbYI+DTXdzE2gdp7dIqPF8\n"\
-            "ArP1OAWj41HNYcKpM/dCQ0DBAoGBAKwUdfAndnf0AINCyjukVzqy1BMq1NYGs93Q\n"\
-            "ErFfvji2kGzLl3UkV0n/2rM5hJZVYH6cXP59Qe/WvuL3lHvXqADsnU2NOzZaWskr\n"\
-            "nPIkqV1dvGYdW3AZ4Usns+z2ESMM36m5S8U+iaBiHn/t3j9bH5PJUmABKLhAdqI/\n"\
-            "lt4DkCR5AoGBAKYWdNIGOcczuAGRt2pDnLq88mZIIqHAYu1iJk9t5oVozDphPoSf\n"\
-            "Vq6gDIMfPfZB69bCgavM05+RmQiGXoq6Ak59Ybhi1RFIDsRY8Ovs0lgvy7e7gGkJ\n"\
-            "l4EWLKu/XbXPN43me7ZUIoNSUuVRw+nihLMGgcw75oFxaiB3IQoEY0T/\n"\
-            "-----END RSA PRIVATE KEY-----\n";
+"MIIEpAIBAAKCAQEAskwWR+7ve/hG/+DDszfNDpfUl8hy52udLAUofQZgNkCxH3xk\n"\
+"mqoTrlYD/kZBMgpVNU6MWvNZsNsoI9uWHVf32AHa66rThjNu63zuhKeAoKfI0DWt\n"\
+"VXD3f6eZJPy2T3spZFNCS5U++ghVKb1HYR9n5ctOus8i27w0b+iuAkUuNUHsNicZ\n"\
+"Tf7+/5REdID6hG0TJaHP+a6I+JPR/POoDeeTG0FK5F+bhoy5Zf8om42QDMvBP0Je\n"\
+"xYIKclOngnKQ9QjrfuoF7a8oE8F9p1YqbfJbIUt21Hel584Qbx9DlF5FvWXxMxdZ\n"\
+"5dEkXIYcbagLvvoKqhxbjIPJeOoGIEA9JwdW+wIDAQABAoIBAQCVinl5la5pJMCv\n"\
+"5h1dmGS1Y6TcNTQiY0Ds5dqimhFiD3o/dT6P9iwRoXUx9EzEIqR61EmmEsrcKcQN\n"\
+"5yONsvVdx5iM5rcIrOTQP/Vxb2fT10X3U73wlpIPEEvDGO3z1dHOooJNEH1Eim6b\n"\
+"VnSiwguLUazTw91xvPWiEt63arypzx1kQtHkYgzZrEP9E54B+K7sofuWANTSONT8\n"\
+"7XGHoW0s0NrHZLk/HHQjGx8vB1itqmE1xdPoon1tWSrCDLnPYGZsRsLp19/wHOza\n"\
+"m4xGmono3WJuv6oKSKZhtxBW6G+FF1TS4KIhaYLpsKxA+sbrGF5vaPqTj4eNUWno\n"\
+"/CMwe5HRAoGBANY6Ublb7TW98xJ1bo4z/hM1NUbGdgp2mRnN+rGrep9bgrZ0dRaI\n"\
+"JlGWK4yZuxzELqirGOgvBElomCYmjxU1fHyr2HMigdkEyY+rMv4RywQ+nnLFvwus\n"\
+"T1ENKCdO+VHhHQ95v1RL2D3vC9Lmk+NEEGcMCe+MoH4E1zilx6SGY8wZAoGBANUQ\n"\
+"NVfdOTbP8FWa1EeiiNzJ6uJGw/3bl8X3NnvYSNEWg+UDPUg4jF3ILsVUu/YeGedr\n"\
+"eas0TthUgziKWRT11DGyytwx9yiw/RhDAsvGfay927Mbj5mo6CKrueTkCdIG8SR7\n"\
+"ONwNmNh6XJ/4MQBivC0mVaCaCTgMB1SfjEXMaN4zAoGAXMZ46gtTmXifshjFPjRq\n"\
+"Dit23SXJrRJbj39S2Gro+eaJnzakFpPz9FVSmttg2z5i7ozahoMGGjx/19XPFWJK\n"\
+"fTt2y7XgAfo+yEdeGAXgo//yYsYczJNc7j8CarOa6cjR6wfQwlLuXTQPLNDKrxuk\n"\
+"9tuR2fpO7wRtqIyy/x9sTNECgYEAk0nOJnxnBe4/jV4oK5E/nan0NxKGgKJiTFc2\n"\
+"keyVgf1XlmRj4947osU1F/MYsO5kJ+fTRzg03TWnNNnm9Sdv1h9sP0ZHPxkDDded\n"\
+"QjNoQ5dIHowJ/EaYmwctzf6aj1d/MiIAz5aSt+v2xhtz/HlE7s1WWlzBzL37/1MA\n"\
+"TGwffqMCgYARNBQV/FJTpQYch49l8RggZ6NYOIvMZKEflccqgFx6npZ2Wpdmh2Vs\n"\
+"hlhWtI2OzrMFPvU83mF4E9i4zQ/UL7Gu2ryFk2T/8FF6/SVK70cP/k7nxGYgDirs\n"\
+"vTJxVddWab8n74UzD0oVdSsDJ3DVRk/7RipAFE0y3xNBKtBDcAy21g==\n"\
+"-----END RSA PRIVATE KEY-----\n";
 
     RSA * rsa = createRSA(privatekey,0); 
     int  result = RSA_private_decrypt(data_len,enc_data,decrypted,rsa,padding);
@@ -309,32 +309,32 @@ void make_degest_msg(unsigned char *dig_enc, unsigned char *encrypted ,int encry
 
 
 char signkey[] = "-----BEGIN RSA PRIVATE KEY-----\n"\
-    "MIIEowIBAAKCAQEAuqLRIRF0d6zb2ZsQ0BwEDk9o83t3EoKnsWfN96hdaqD8SIGX\n"\
-    "qLNs0FhxW6BB+JyQVRDXPN2GI65FOszAzJGHyzzrhMZmkVGbB311A00NjypF9/Vw\n"\
-    "0G8lQG5Wv3TvFF1eiyZ0PSGcpjYfEVDEqa7D7c1Y2uDB8aG65eh2+aaQWxcaH7rm\n"\
-    "maO4upOLcqH7awTozHFJuBbGBLnegrZ86MFpmEzpCuYuFfMLUp5bnOA+G74y94jd\n"\
-    "f5eiz1IGR3HeVacue5rmJCWKdWXOE95yWNgj04tpFY9sYEyocRT35JiovdsxZaF/\n"\
-    "884zGR5BNIVp6fh+PdBPAdtqKqmvgBLwtafaPQIDAQABAoIBAQCfj9+3o9KtFk4H\n"\
-    "prkjEzCsg1u4/o94ddekppjC6WCkbuoBmznr8ypOna6cpVCBmmkTMQizcrjh/HYX\n"\
-    "pUIYIzuzmGvK4kyCZQBj0PCfV9sF0SBss5w1tzBj+3GS0ggsov7XfJLYSMpCl/bL\n"\
-    "uP/KCi5cOrmCt7FYQesl8C73lV3JYWr7SC0f2bPkgP2W0aS59s6xvo1dCgYIpkRk\n"\
-    "RVH7DT46Dt+PWLb+83cxwyqSXgXU/6HfTxxsN8/O7BPzsvzWpfD38m5ZOeZFqaRs\n"\
-    "IqiZVptccCIYMhcInnq00sWGJ8+llmMi5c7LKl9CESsmbTQFTi8f+CPDIvlODI6C\n"\
-    "51wCz+JBAoGBAOEbwrPp2QsFeYYEQYXJhLA44kqhfWuPmq+RK0rybAlDgO15HBwS\n"\
-    "nJIUShIFxfHhpLdNmiuPtbDkstDM7gmguLOz2Ka4gOxBtgxtJEZbc8fj4KDGqY31\n"\
-    "oN69qMYxwH9XRiBnmY9FoWg7aglRKtdEt9lUslEp+3mip9UqwOZ7mmT5AoGBANQ/\n"\
-    "fSmhfwR0AgZF0R+d9RxdcBiOwcQBzKKqCl31tzXqf78VlbxWR+zg9w0iuAuk8WsS\n"\
-    "+AIEHOvYdMcAaxnh/xXFENnj4RO31LzFypbivX8q2yNbeuTrb7DLQb8ovtKz1Z9t\n"\
-    "0g4U9mttWc0/+9QSLRPtUJlNM+ywTBGe06q5oyRlAoGAdqDzjW6aA7Xh4d9STFfz\n"\
-    "hg6kKmJKPynRgd5F61wv1P3u7raZOq4QNudcVX0XYK3h6PuLWJOGU29iUKj+dLJv\n"\
-    "Q7xuWwX2YwsKDihiKnW9YUTUtsWaywX7vgZC8Bd9812hxifyg89VDSHqcniE1CcR\n"\
-    "oAWDZ0RxkxtFyQ+b0pqmtbkCgYA8U0s8wOT8HAjTRZa5mMio5jnNEQ4rqqNB/Hhz\n"\
-    "2jnXfi4O3pCvdgp9Xjd5qUuMK7ZeS4bn88lQkzYltY27TouU4Wz3sRgw5Yf2m3UI\n"\
-    "S6u2cDTWqNKWLACTzEGElo0eD/UAmlMgo36ia/MhLjViQkRDrKjC2bmPZVBJlc3t\n"\
-    "cVPYLQKBgAg/557Smldia0TYW4mnymRVSPP9+b1SDnxQzFxSkVG84Sm+pLGNmcAr\n"\
-    "ZNjuQaXkLZjr70qMpj1wrOodQ3QGL7RbbeD7Kq41sC89xjt50hxDiO7CYfd1O/c/\n"\
-    "wKTmUsMPxYIYGVQfpM5IFyBAaaUxsvWIFEDegNjBoxSXSOhqkCyJ\n"\
-    "-----END RSA PRIVATE KEY-----\n";
+"MIIEowIBAAKCAQEA3vjKYGtSzxNhdh/lkM1Ma5bwsxlnqnPr8vG+VCdI6AGCpEjc\n"\
+"2L5Fty4lKpUWO/uHZNjX+w5TF9WXL479QbMDjXnEr5+Ro5Hr2s5cxy6DCVl7kM3s\n"\
+"LWoeMlMxtuwZ/mIF0/z5jb+5o++pvAVODJk5UccQS/BzDdrxr5lHCEI6CtuP0zsP\n"\
+"PpN3z1ZmCQUeJQsHHPMKPanQrCl6f6C7/nbDo6ogEa58P3Xr1RtmgxsIWYRfOeDr\n"\
+"g/BTQUP6Z8K9aezJ/hbP770TFeOssGUtqFO4vHeV7THGo8y06BF7kioHGh78LWz5\n"\
+"wO52fbbVZ266xzTPEPHn9oIS/3uCzA8R5onDKQIDAQABAoIBAAQSjTe3nhqUIwqS\n"\
+"SJIdfdDVP+41f5Q4a83TJoPI9+bs6CLyBb6bsxBGcn1VncNYs79eyosWVuQvjYRb\n"\
+"2zpQ97aky7fddT6Eksc7T6x/p/sKvFwHttGZh5WpuVW6+DqSNcMKctBo+Q4KeZIq\n"\
+"kqNeRRK+TQjmCmPtZM6tQQPgmcjK8xW9XtsTi+fsp5njAek+ATYe0LQ0CZu/LMF3\n"\
+"i31Ronc2swsT+e9TjBAt0QJlKEHcSLRo4N0bnjiRD3LQ1/pH+IO226yDVp3q1tmK\n"\
+"hiRt98GDqCH6PwAEG1jdYf9ycbbANpz1rWvLjS3N4lrvmPzBfHDY8nrnGlcwRkTk\n"\
+"uv6aAbUCgYEA/rEBNByUAvg9FMobqMlepYjs9uYzABXlryd0lOR1J2vU9ELvDa91\n"\
+"/w1u1KxDrZGJ74sow/svMKi7h57i7iVVddCfRzMLdA2SLoNBdixtEJwpfU47ttPU\n"\
+"EH9kYUbXugbTRwO3jRibU2szj8ELejFhpT9RpXHL+HLpFhk43LYDbesCgYEA4B4Q\n"\
+"qn07xV4kwPugkprITQUnef6M4iuXTynppisW1EixZnR9xYrDh+SScAC5Rgg8nU1I\n"\
+"4nUwfXNCgqMrxuaAD5fkvNdsulpYma8XYU4cFYYEmeAcIpOjOzEg1a3R8iPHdZts\n"\
+"oL2A6Qm7DrlumoxQO+0hyzZPm+B9lN6uBkgMyjsCgYAXK28amIb2hjK4U3KUtkz/\n"\
+"7ibwhxyYo2VTu9klOmtV/L9QwU4SBqZLX6N3gXxeq+DKg/Rfb9hpKtB0lAW8+HR/\n"\
+"1UzII2KlWh60UIiCAaSiYDJ+DcHs7fRa09wD5Xf2mmxaB4KJOXXX7uav6zXqFdf2\n"\
+"On5o+KM/pOSDeCPuIDjLpQKBgQCySxjFGRX44PlqUYQfvWVF6KjMI5aew0D/aH+J\n"\
+"g1QJE7+Vm20HP2pobI2W7ux1602VcoteJQ6rbotl9Dt6Y5tTTGpbVSIZapB7ytBV\n"\
+"x9cNxG1aoPChDUTZbS8K7tpLwO0IAdq8UaYBPo2CnECCUMfvtKmiyZUxk7k0OqbF\n"\
+"NoJ+SwKBgEwjrJxpWt4ypDvLDkZ94tDhwa5errqePzuLAFyW5x/TyPJKEGFyoUZb\n"\
+"UvqBNlf8JpqrQguxm8EMXqT6s6M9jGIReqViTg6GGWBnkipac51R7FY0M2cFDfuR\n"\
+"0jBRyAf2JF4VPJYy1ENFaFywO4JgAhpi0KFMJhXh7FspFxLyeF6v\n"\
+"-----END RSA PRIVATE KEY-----\n";
 
 
 int main(int argc, char* argv[])
