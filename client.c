@@ -32,7 +32,6 @@ long long int: "long long int", unsigned long long int: "unsigned long long int"
 #define NUMKEY 4
 #define NONCE_SIZE 8
 #define SESSION_KEY_REQ_IN_PUB_ENC 20
-
 int padding = RSA_PKCS1_PADDING;
 
 struct topic
@@ -57,8 +56,8 @@ struct topic Topic;  // Topic declaration;
 struct sessionKeyReq SessionKeyReq; // SessionkeyReq declaration;
 unsigned char message[15];
 unsigned char auth_id[AUTH_ID_LEN];
-char sender_req[20] = "net1.client";
-char purpose_req[20] = "{\"group\":\"Servers\"}";
+char sender_req[15] = "net1.client";
+char purpose_req[19] = "{\"group\":\"Servers\"}";
 
 void sender()
 {
@@ -70,7 +69,8 @@ void purpose()
 {
     strcpy(SessionKeyReq.Purpose , purpose_req);
     memset(SessionKeyReq.Purpose_len,sizeof(SessionKeyReq.Purpose),1);
-    }
+}
+
 void numkey()
 {
     memset(SessionKeyReq.NumKeys,0,sizeof(SessionKeyReq.NumKeys));
@@ -123,9 +123,9 @@ void serializeSessionkeyReq()
         memcpy(buf+NONCE_SIZE,SessionKeyReq.Auth_nonce,NONCE_SIZE); //Auth_nonce
         memcpy(buf+NONCE_SIZE*2,SessionKeyReq.NumKeys,NUMKEY); // Key_num 4byte
         memcpy(buf+NONCE_SIZE*2+NUMKEY,SessionKeyReq.Sender_len,1); // Key_num 4byte
-        memcpy(buf+NONCE_SIZE*2+NUMKEY+1,SessionKeyReq.Sender,20); // Key_num 4byte
+        memcpy(buf+NONCE_SIZE*2+NUMKEY+1,SessionKeyReq.Sender,15); // Key_num 4byte
         memcpy(buf+NONCE_SIZE*2+NUMKEY+1+20,SessionKeyReq.Purpose_len,1); // Key_num 4byte
-        memcpy(buf+NONCE_SIZE*2+NUMKEY+1+20+1,SessionKeyReq.Purpose,20); // Key_num 4byte
+        memcpy(buf+NONCE_SIZE*2+NUMKEY+1+20+1,SessionKeyReq.Purpose,19); // Key_num 4byte
         
     printf("-- Serialize한 내용 -- \n");
         for(int i=0; i<sizeof(buf);i++)
@@ -444,9 +444,9 @@ int main(int argc, char* argv[])
 
 
         printf("sizeof buffer: %ld \n", sizeof(buffer));
-        // printf("buffer 의 내용!! \n");
-        // for(int i =0 ; i<sizeof(buffer); i++)
-        //     printf("%x ", buffer[i]);
+        printf("buffer 의 내용!! \n");
+        for(int i =0 ; i<sizeof(buffer); i++)
+            printf("%x ", buffer[i]);
         printf("\n");
         
 
