@@ -613,7 +613,7 @@ int main(int argc, char* argv[])
             slice(hmac,result,0,sizeof(hmac));
             if(strncmp((char *)hmac, (char *) received_tag, sizeof(hmac)) == 0 )
             {
-                printf("성공!!! \n");
+                printf("Hmac success!!! \n");
             }
 
             // IV , CBC mode
