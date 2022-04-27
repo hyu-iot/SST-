@@ -66,25 +66,25 @@ unsigned char auth_id[AUTH_ID_LEN];
 char sender_req[] = "net1.client";
 char purpose_req[] = "{\"group\":\"Servers\"}";
 
-int read_variable_UInt(unsigned char * buf,int offset, int byteLength)
+int read_variable_UInt(unsigned char * read_buf,int offset, int byteLength)
 {
     int num =0;
     unsigned long int sum =1LU;
     for(int i =0; i<byteLength;i++)
     {
-        num |= buf[offset+i]<< 8*(byteLength-1-i);
+        num |= read_buf[offset+i]<< 8*(byteLength-1-i);
     }
     return num;
     
 }
 
-void make_time(unsigned char * buf, int index, int byte_length)
+void make_time(unsigned char * time_buf, int index, int byte_length)
 {
     unsigned long int num_valid =1LU;
     for(int i =0; i<byte_length;i++)
         {
         unsigned long int num =1LU << 8*(byte_length-1-i); //LU 안써주면 인식을 못함.
-        num_valid |= num*buf[index+i];
+        num_valid |= num*time_buf[index+i];
     }
     printf("abs_valid : %ld\n", num_valid);
     num_valid = num_valid/1000; // 받은 자료는 milisecond로 되어있어서 변환
@@ -95,10 +95,10 @@ void make_time(unsigned char * buf, int index, int byte_length)
     printf("%04d-%02d-%02d %02d:%02d:%02d\n",it->tm_year +1900 , it->tm_mon + 1, it->tm_mday , it->tm_hour, it->tm_min, it->tm_sec
     );
 }
-void print_buf(unsigned char * buffer, int n)
+void print_buf(unsigned char * print_buffer, int n)
 {
     for(int i=0 ; i<n; i++)
-        printf("%x ", buffer[i]);
+        printf("%x  ", print_buffer[i]);
     printf("\n");
 }
 
@@ -146,7 +146,6 @@ void nonce_generator()  // nonce generator;
     unsigned char buffer[NONCE_SIZE];
     int length = NONCE_SIZE;
     RAND_bytes(buffer,length);
-    printf("Random Entity Number = ");
     for(int i=0;i<NONCE_SIZE; i++)
         {
         printf("%x ", buffer[i]);
@@ -178,46 +177,44 @@ void serializeSessionkeyReq()
         memcpy(buf+NONCE_SIZE*2+NUMKEY+1+strlen(SessionKeyReq.Sender)+1,SessionKeyReq.Purpose,strlen(SessionKeyReq.Purpose)); // Key_num 4byte
         
     printf("-- Serialize한 내용 -- \n");
-        for(int i=0; i<sizeof(buf);i++)
-            printf(" %x ", buf[i]);
+    print_buf(buf,sizeof(buf));
     }
-    printf("\n");
 }
 
+// void TcpCommunication(int argc, char* argv[]) // TCP Connection(client)
+// {
+//     int my_sock;
+//     struct sockaddr_in serv_addr;
+//     int str_len;
+//     if(argc != 3)
+//     {
+//         printf("%s <IP> <PORT>\n", argv[0]);
+//         exit(1);
+//     }
+//     my_sock = socket(PF_INET,SOCK_STREAM,0); //1번
+//     if(my_sock == -1)
+//         printf("socket error \n");
+//     memset(&serv_addr,0,sizeof(serv_addr));
+//     serv_addr.sin_family = AF_INET;
+//     serv_addr.sin_addr.s_addr=inet_addr(argv[1]);
+//     serv_addr.sin_port=htons(atoi(argv[2]));
 
-void TcpCommunication(int argc, char* argv[]) // TCP Connection(client)
-{
-    int my_sock;
-    struct sockaddr_in serv_addr;
-    int str_len;
-    if(argc != 3)
-    {
-        printf("%s <IP> <PORT>\n", argv[0]);
-        exit(1);
-    }
-    my_sock = socket(PF_INET,SOCK_STREAM,0); //1번
-    if(my_sock == -1)
-        printf("socket error \n");
-    memset(&serv_addr,0,sizeof(serv_addr));
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_addr.s_addr=inet_addr(argv[1]);
-    serv_addr.sin_port=htons(atoi(argv[2]));
-
-    if(connect(my_sock,(struct sockaddr*)&serv_addr,sizeof(serv_addr))==-1) //2번
-        printf("connect error\n");
-    memset(message,0x00,sizeof(message));
-    str_len = read(my_sock,message,sizeof(message)-1); //3번
-    if(str_len==-1)
-        printf("read error\n");
-    if(message[0] == 0)
-        printf("Received AUTH_HELLO Message!!! \n");
-        printf("Receiving message from Auth : ");
-    for(int i=0; i<str_len ; i++)
-    {
-        printf("%x ",message[i]);
-    }
-    close(my_sock); //4번
-}
+//     if(connect(my_sock,(struct sockaddr*)&serv_addr,sizeof(serv_addr))==-1) //2번
+//         printf("connect error\n");
+//     memset(message,0x00,sizeof(message));
+//     str_len = read(my_sock,message,sizeof(message)-1); //3번
+//     if(str_len==-1)
+//         printf("read error\n");
+//     if(message[0] == 0)
+//         printf("Received AUTH_HELLO Message!!! \n");
+//         printf("Receiving message from Auth : ");
+//     for(int i=0; i<str_len ; i++)
+//     {
+//         printf("%x ",message[i]);
+//     }
+//     close(my_sock); //4번
+// }
+//publice key
 char publickey[] = "-----BEGIN PUBLIC KEY-----\n"\
                         "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxhChIBXNUdx7v/Js++Ki\n"\
                         "vH6Jok1+Hwo6E07yZBS7UPR0Mp3Rl1u1a3geVcm93apUF187ul5BTuCmynUtKrsd\n"\
@@ -227,7 +224,7 @@ char publickey[] = "-----BEGIN PUBLIC KEY-----\n"\
                         "gzo72Pm55FSwgFXKeLpK85p0jaZEEjQ+Ui/qC6mWP7R67UxrjKieng38aLos4GUK\n"\
                         "xwIDAQAB\n"\
                         "-----END PUBLIC KEY-----\n";
-            
+// Auth privatekey
 char privatekey[] = "-----BEGIN RSA PRIVATE KEY-----\n"\
 "MIIEowIBAAKCAQEAxhChIBXNUdx7v/Js++KivH6Jok1+Hwo6E07yZBS7UPR0Mp3R\n"\
 "l1u1a3geVcm93apUF187ul5BTuCmynUtKrsdqOjnrco+TMNoHhM4+fHgO5PbAgnz\n"\
@@ -254,6 +251,35 @@ char privatekey[] = "-----BEGIN RSA PRIVATE KEY-----\n"\
 "AscYVQKBgCRIkf2VdpwywLMm63Xde++VtuAMNsDY3Z0kO1mnbd5EBZdCdLkaU4Rc\n"\
 "maOXLO+GxhFoncrD7dQwmqJkRo8o9iAnKKhgDycPs5OTxVjRTFc2IJw6QWqBKO9H\n"\
 "UK+coIjyTzKlLYcXc49Uxj91IVmMP3E95JhlHGu0zPriTS/OBzfE\n"\
+"-----END RSA PRIVATE KEY-----\n";
+
+
+char signkey[] = "-----BEGIN RSA PRIVATE KEY-----\n"\
+"MIIEogIBAAKCAQEAwOIkSI/ljx7btBFPqhl4MmRycoUhfprNumtYhEgwVq/xdjCm\n"\
+"O/mL6DNxuCwT29/FkeGm0iFzpvOSzWC4ULw2UYz5Ydp1Bh1b/6fByAgUTbHD19rg\n"\
+"EkVbicnERtrBlb63rXme9kaOF0xhWxRRmIFhXBmivzVGcIwrD55Uv3Ou7tT7fmMw\n"\
+"rY1Mj5bWU4ya4B4N9ysCL1lanMVy1drsuijoRZMjCOlQFNSj7BmpqHCnAWoXKKrT\n"\
+"0TZ7pFYeu/ryr4JgLvXnr37RHVR0gagItuMaaxt2feAQ/INX7Sc3MpmMa6Wwmv0L\n"\
+"8dJAHlL0fqsxaDMGtip20gcWxlVsKmkKjYdP/QIDAQABAoIBABl4Qy5JwhhqDLz0\n"\
+"ZD6j6llNJke1CL09F9l7/05IcgmgZhQjTHAy/aSF1ohpWZ35KI+g6nRo8mqjU0lH\n"\
+"ck9G6y1NnkirnjRWgCV8M3yEhJnV1XSVdG01N2c0e3SXwmRRsNN5ceI3Yt/0uA5c\n"\
+"2oF25DJTOEhjco++EpmXYL1/OyRSRFYiRA9UmTPjGyOU2X4uG3jlyXa++JQQ6MYP\n"\
+"iCHmH1Mdighnb008RttF9m55X+RMAw9IPqCigzaKCOEmOkNDA97PlVdslIolN2uf\n"\
+"fsWkMQzTktMpuDMlieyVyCd5zu38isdoq2Si1+ICQ20TNDQjRUEzScSCv6Jr8grs\n"\
+"tWYpEoECgYEA+9EKvvcDvZyBqL6elsojPp6/r8iIu1+hnbParj5aGbwNVReZuzyh\n"\
+"ChOUZfxlikygV7AQfdf5xM0LjvvFQZkBlNOMaZ/HCBmbWTHirzIH9I7qbU4N/puE\n"\
+"zOj3P40fn1tZqySHAKDMv4c29JTYyvm/eih8hjXm3MavgyJSrKZ1Y60CgYEAxBZ2\n"\
+"BSj/wEcGxV/rcK3sU0ABtFxFXxM1UfBalLOXZMaNwe8jN7OXhnQYlwU1WA6KsuPi\n"\
+"/bwllflkQXFP6yRtiGOm5kcJukLqss3hUoEKhG6pYnFMYaHYWdkQ4nzkK+a4gR2d\n"\
+"L8gcQ83j7fKAEOaRkBbdAVvrF/HvQley9nWUp5ECgYAmi+lJMiawb7SpUASWsHqU\n"\
+"q1hMYDYN+KWUrmNbKNBCADdKP0KZFr7P/A9LTUd91Bz3T0w290iUh46tZHzdfb5w\n"\
+"ObHUuVCOPN062hgJGW9+UCIyeTBLOSMq+r5eTAv7KNChEgZYYkT1TI1tAxvsdi6J\n"\
+"VIk7QiUExqU3PZnKM/DkQQKBgBhaHcAYTmLHr1yVw/yTbPUNzuhiSS88iHOroOQ0\n"\
+"xYl7ayF5nGsPf7Lv+hnPSMetzqXWzVrrodNVTJEgDGfMd1nn3lNc4SVjqBgan3AK\n"\
+"nI7D239hSLYbTm4iGgm2rvOQzLskPWAwvungyPzFEAiJSeyWGk5P5wtrPWaE07Ht\n"\
+"+k8xAoGABHF+kzJbKAZ4RLUYkBLB1vd7Dlb/VFJEjgbJ0ntWOxcUY2DIqkmKITOU\n"\
+"1TjBqhaMMP1IcEP9Uo27XJH2wjfg063n48/BUWCic7P92QwqH2sWdZEtM8bMhy9/\n"\
+"eroDJM9GZbJe8Ezn2wkFCiiyRNfo5Tm9S3BXwi+qMHT8PUTygFY=\n"\
 "-----END RSA PRIVATE KEY-----\n";
 
 
@@ -310,37 +336,6 @@ void printLastError(char *msg)
     free(err);
 }
 
-void enc_print(int encrypted_length, unsigned char *encrypted)
-{
-        printf("\n");
-
-        printf("encrypted length: %d \n", encrypted_length);
-        printf("-- encrypted 된 값 -- \n");
-        for(int i=0 ; i<sizeof(buf); i++)
-        {
-            printf(" %x ", encrypted[i]);
-        }
-        if(encrypted_length == -1) // RSA_public_encrypt() returns -1 on error
-        {
-            printLastError("Public Encrypt failed ");
-            exit(0);
-        }
-        printf("\n");
-        printf("\n");
-}
-void dec_print(int decrypted_length, unsigned char *decrypted)
-{
-        printf("\n");
-
-        printf("decrypted length: %d \n", decrypted_length);
-        printf("-- decrypted 된 값 -- \n");
-        for(int i=0 ; i<decrypted_length; i++)
-        {
-            printf(" %x ", decrypted[i]);
-        }
-        printf("\n");
-        printf("\n");
-}
 
 void make_degest_msg(unsigned char *dig_enc, unsigned char *encrypted ,int encrypted_length)
 {
@@ -350,35 +345,6 @@ void make_degest_msg(unsigned char *dig_enc, unsigned char *encrypted ,int encry
     SHA256_Update(&ctx, encrypted, encrypted_length); 
     SHA256_Final(dig_enc, &ctx);     
 }
-
-
-char signkey[] = "-----BEGIN RSA PRIVATE KEY-----\n"\
-"MIIEogIBAAKCAQEAwOIkSI/ljx7btBFPqhl4MmRycoUhfprNumtYhEgwVq/xdjCm\n"\
-"O/mL6DNxuCwT29/FkeGm0iFzpvOSzWC4ULw2UYz5Ydp1Bh1b/6fByAgUTbHD19rg\n"\
-"EkVbicnERtrBlb63rXme9kaOF0xhWxRRmIFhXBmivzVGcIwrD55Uv3Ou7tT7fmMw\n"\
-"rY1Mj5bWU4ya4B4N9ysCL1lanMVy1drsuijoRZMjCOlQFNSj7BmpqHCnAWoXKKrT\n"\
-"0TZ7pFYeu/ryr4JgLvXnr37RHVR0gagItuMaaxt2feAQ/INX7Sc3MpmMa6Wwmv0L\n"\
-"8dJAHlL0fqsxaDMGtip20gcWxlVsKmkKjYdP/QIDAQABAoIBABl4Qy5JwhhqDLz0\n"\
-"ZD6j6llNJke1CL09F9l7/05IcgmgZhQjTHAy/aSF1ohpWZ35KI+g6nRo8mqjU0lH\n"\
-"ck9G6y1NnkirnjRWgCV8M3yEhJnV1XSVdG01N2c0e3SXwmRRsNN5ceI3Yt/0uA5c\n"\
-"2oF25DJTOEhjco++EpmXYL1/OyRSRFYiRA9UmTPjGyOU2X4uG3jlyXa++JQQ6MYP\n"\
-"iCHmH1Mdighnb008RttF9m55X+RMAw9IPqCigzaKCOEmOkNDA97PlVdslIolN2uf\n"\
-"fsWkMQzTktMpuDMlieyVyCd5zu38isdoq2Si1+ICQ20TNDQjRUEzScSCv6Jr8grs\n"\
-"tWYpEoECgYEA+9EKvvcDvZyBqL6elsojPp6/r8iIu1+hnbParj5aGbwNVReZuzyh\n"\
-"ChOUZfxlikygV7AQfdf5xM0LjvvFQZkBlNOMaZ/HCBmbWTHirzIH9I7qbU4N/puE\n"\
-"zOj3P40fn1tZqySHAKDMv4c29JTYyvm/eih8hjXm3MavgyJSrKZ1Y60CgYEAxBZ2\n"\
-"BSj/wEcGxV/rcK3sU0ABtFxFXxM1UfBalLOXZMaNwe8jN7OXhnQYlwU1WA6KsuPi\n"\
-"/bwllflkQXFP6yRtiGOm5kcJukLqss3hUoEKhG6pYnFMYaHYWdkQ4nzkK+a4gR2d\n"\
-"L8gcQ83j7fKAEOaRkBbdAVvrF/HvQley9nWUp5ECgYAmi+lJMiawb7SpUASWsHqU\n"\
-"q1hMYDYN+KWUrmNbKNBCADdKP0KZFr7P/A9LTUd91Bz3T0w290iUh46tZHzdfb5w\n"\
-"ObHUuVCOPN062hgJGW9+UCIyeTBLOSMq+r5eTAv7KNChEgZYYkT1TI1tAxvsdi6J\n"\
-"VIk7QiUExqU3PZnKM/DkQQKBgBhaHcAYTmLHr1yVw/yTbPUNzuhiSS88iHOroOQ0\n"\
-"xYl7ayF5nGsPf7Lv+hnPSMetzqXWzVrrodNVTJEgDGfMd1nn3lNc4SVjqBgan3AK\n"\
-"nI7D239hSLYbTm4iGgm2rvOQzLskPWAwvungyPzFEAiJSeyWGk5P5wtrPWaE07Ht\n"\
-"+k8xAoGABHF+kzJbKAZ4RLUYkBLB1vd7Dlb/VFJEjgbJ0ntWOxcUY2DIqkmKITOU\n"\
-"1TjBqhaMMP1IcEP9Uo27XJH2wjfg063n48/BUWCic7P92QwqH2sWdZEtM8bMhy9/\n"\
-"eroDJM9GZbJe8Ezn2wkFCiiyRNfo5Tm9S3BXwi+qMHT8PUTygFY=\n"\
-"-----END RSA PRIVATE KEY-----\n";
 
 
 int main(int argc, char* argv[])
@@ -404,113 +370,113 @@ int main(int argc, char* argv[])
         if(connect(my_sock,(struct sockaddr*)&serv_addr,sizeof(serv_addr))==-1) //2번
             printf("connect error\n");
         memset(message,0x00,sizeof(message));
-        str_len = read(my_sock,message,sizeof(message)-1); //3번
+        str_len = read(my_sock,message,sizeof(message)-1); // message
         if(str_len==-1)
             printf("read error\n");
         if(message[0] == 0)
+        {
             printf("Received AUTH_HELLO Message!!! \n");
             printf("Receiving message from Auth : ");
-        for(int i=0; i<str_len ; i++)
-        {
-            printf("%x ",message[i]);
+            print_buf(message, str_len);
+
+            AuthID();
+            AuthNonce();
+            numkey();
+            sender();
+            printf("Entity Nonce = ");
+            nonce_generator();
+            purpose();
+
+            if(message[0] == 0)   //Auth_Hello 받았을 때!
+            {
+                serializeSessionkeyReq();
+            }
+            
+
+            unsigned char encrypted[2048] = {};
+            unsigned char decrypted[2048] = {};
+            unsigned char sigret [1000] = {};
+            unsigned int  sigret_Length ;
+            unsigned char dig_enc[SHA256_DIGEST_LENGTH];
+            // Based on this comment you can encrypt at most 214 bytes using 256 byte RSA key.
+            // strlen(plainText로 하면 0인 부분에서 끊겨서 제대로 된 encrypt가 되지 않음)
+            
+            // Encryption
+            int encrypted_length= public_encrypt(buf,sizeof(buf),encrypted);
+            printf("encrypted length: %d\n", encrypted_length);
+            printf(" -- encrypted value -- \n");
+            print_buf(encrypted, encrypted_length);
+            
+            // Decryption을 통해 Encryption이 잘됐는지 확인!!
+            int decrypted_length = private_decrypt(encrypted,encrypted_length,decrypted,privatekey);
+            printf("decrypted length: %d\n", decrypted_length);
+            printf(" -- decrypted value -- \n");
+            print_buf(decrypted, decrypted_length); 
+
+            //strlen 을 하게되면 sizeof 보다 넘어갈 시에 \n이 없다면 계속 불러옴!!
+
+            //////////////////sign part////////////////////////
+            // make digest message
+            // 작게 만들어줘야 RSA sign이 가능함
+            make_degest_msg(dig_enc, encrypted, encrypted_length);
+
+            RSA * rsa = createRSA(signkey,0); 
+
+            // // sign!
+            int sign_result = RSA_sign(NID_sha256, dig_enc,SHA256_DIGEST_LENGTH,
+                sigret, &sigret_Length, rsa);
+            if(sign_result ==1)
+                printf("Sign length: %d\n", sigret_Length);
+                printf("Sign success \n");
+            ///////sigret_Length =256;
+            // // verify!   
+            int verify_result = RSA_verify(NID_sha256, dig_enc,SHA256_DIGEST_LENGTH,
+                sigret, sigret_Length, rsa);
+            if(verify_result ==1)
+                printf("verify success\n");
+
+            /// enc+sign length 구해서 buffer에 저장
+            unsigned char extra_buf[5];
+            unsigned int num = encrypted_length + sigret_Length;
+            int n = 1;
+            while(num > 127)
+            {
+                extra_buf[n-1] = 128 | num & 127;
+                n += 1;
+                num >>=7;
+            }
+            extra_buf[n-1] = num;
+
+
+            // Total message buffer 설정하고 msg_type부터 넣기!
+            // msg type(1) + data length512(2) + data(512){encrypt 256+ sign 256} 
+            unsigned char buffer [1 + n + encrypted_length + sigret_Length ];
+            buffer[0] = SESSION_KEY_REQ_IN_PUB_ENC;
+            memcpy(buffer+1, extra_buf, n);
+            memcpy(buffer+1+n,encrypted, encrypted_length);
+            memcpy(buffer + 1 + n + encrypted_length,sigret, sigret_Length);
+
+
+            printf("sizeof buffer: %ld = msg type(1) + data length buf(2) + data(encrypt 256 + sign 256) \n", sizeof(buffer));
+        
+            write(my_sock, buffer,sizeof(buffer));
+    
         }
-        
-
-        AuthID();
-        AuthNonce();
-        numkey();
-        sender();
-        printf("\n");
-        nonce_generator();
-        purpose();
-
-        if(message[0] == 0)   //Auth_Hello 받았을 때!
-        {
-            serializeSessionkeyReq();
-        }
-        
-
-        unsigned char encrypted[2048] = {};
-        unsigned char decrypted[2048] = {};
-        unsigned char sigret [1000] = {};
-        unsigned int  sigret_Length ;
-        unsigned char dig_enc[SHA256_DIGEST_LENGTH];
-        // Based on this comment you can encrypt at most 214 bytes using 256 byte RSA key.
-        // strlen(plainText로 하면 0인 부분에서 끊겨서 제대로 된 encrypt가 되지 않음)
-        // enc 실행
-        
-        int encrypted_length= public_encrypt(buf,sizeof(buf),encrypted);
-        enc_print(encrypted_length,encrypted);        
-        
-        // enc 잘됐는지 확인!!
-        int decrypted_length = private_decrypt(encrypted,encrypted_length,decrypted,privatekey);
-        dec_print(decrypted_length, decrypted);  
-
-        //strlen 을 하게되면 sizeof 보다 넘어갈 시에 \n이 없다면 계속 불러옴!!
-
-        //////////////////sign part////////////////////////
-        // make digest message
-        make_degest_msg(dig_enc, encrypted, encrypted_length);
-
-        RSA * rsa = createRSA(signkey,0); 
-
-        // // sign!
-        int sign_result = RSA_sign(NID_sha256, dig_enc,SHA256_DIGEST_LENGTH,
-              sigret, &sigret_Length, rsa);
-        if(sign_result ==1)
-            printf("sign success \n");
-        ///////sigret_Length =256;
-        // // verify!   
-        int verify_result = RSA_verify(NID_sha256, dig_enc,SHA256_DIGEST_LENGTH,
-              sigret, sigret_Length, rsa);
-        if(verify_result ==1)
-            printf("verify success\n\n");
-
-        /// enc+sign length 구해서 buffer에 저장
-        unsigned char extra_buf[5];
-        unsigned int num = encrypted_length + sigret_Length;
-        int n = 1;
-        while(num > 127)
-        {
-            extra_buf[n-1] = 128 | num & 127;
-            n += 1;
-            num >>=7;
-        }
-        extra_buf[n-1] = num;
-
-
-        // Total message buffer 설정하고 msg_type부터 넣기!
-        unsigned char buffer [1 + n + encrypted_length + sigret_Length ];
-        buffer[0] = SESSION_KEY_REQ_IN_PUB_ENC;
-        memcpy(buffer+1, extra_buf, n);
-        memcpy(buffer+1+n,encrypted, encrypted_length);
-        memcpy(buffer + 1 + n + encrypted_length,sigret, sigret_Length);
-
-
-        printf("sizeof buffer: %ld \n", sizeof(buffer));
-        printf("buffer 의 내용!! \n");
-        for(int i =0 ; i<sizeof(buffer); i++)
-            printf("%x ", buffer[i]);
-        printf("\n");
-        
-        write(my_sock, buffer,sizeof(buffer));
-
-
+        ///// Auth에서 또 message를 보냄!!
         unsigned char message[2000];
         
         memset(message,0x00,sizeof(message));
         str_len = read(my_sock,message,sizeof(message)-1); //3번
         if(str_len==-1)
             printf("read error\n");
-        ////////
-        
+        //////// msg type 21일 때!
         if(message[0] == 21)
         {   
             printf("\nreceived session key response with distribution key attached! \n");
-            printf("Receiving message from Auth : \n");
+            printf("Receiving message length from Auth : %d \n", str_len);
             int num =0;
             int message_length;
-            printf("\n\n");
+            printf("\n");
             for (int i =0; i<sizeof(message)&& i<5; i++)
             {
                 num |= (message[1+i]& 127) <<(7 * i);
@@ -530,23 +496,18 @@ int main(int argc, char* argv[])
             //distributionkeybuf 512개
             unsigned char distribution_key[512];
             memcpy(distribution_key, payload,sizeof(distribution_key));
-            //sessionkeyBuf
+            //sessionkeyBuf 320개
             int session_key_len = num-sizeof(distribution_key); 
             unsigned char session_key[session_key_len];
+
             // 이 길이는 sessionkeyreq에서 key의 개수에따라 다름 ex) 1개 -176, 3개 - 320
             printf("sessionkey_buf 길이 : %ld\n", sizeof(session_key)); 
-            for(int i = 0 ; i<session_key_len; i++)
-            {
-                session_key[i] = payload[i+sizeof(distribution_key)]; 
-            }
+            slice(session_key, payload,sizeof(distribution_key),num);
             unsigned char ret_data[256];
             unsigned char ret_signiture[256];
-
+            // distribution - ret_data, ret_signiture;
             memcpy(ret_data,distribution_key,256);
-            for(int i = 0 ; i<256; i++)
-            {
-                ret_signiture[i] = distribution_key[256+i];
-            }
+            slice(ret_signiture,distribution_key, 256, sizeof(distribution_key) );
             //////Verify 하려면 무조건 다시 digest 시켜줘야 함!!!
             RSA * rsa1 = createRSA(publickey,1); 
 
@@ -557,49 +518,45 @@ int main(int argc, char* argv[])
             if(verify_result ==1)
                 printf("auth signature verified \n\n");
 
-            unsigned char dec_buf[100] = {};
+            unsigned char dec_buf[100];
             // dec 길이는 56 나옴
             RSA * rsa = createRSA(signkey,0); 
-            int decrypted_length = private_decrypt(ret_data,sizeof(ret_data),dec_buf,signkey);
-            dec_print(decrypted_length, dec_buf);
-
+            int dec_length = private_decrypt(ret_data,sizeof(ret_data),dec_buf,signkey);
+            printf("decrypted length: %d\n", dec_length);
+            printf(" -- decrypted value -- \n");
+            print_buf(dec_buf, dec_length);
             // parseDistributionKey 나누기!!
-
+            // absValidity, cipher_key_value, mac_key_value for Received Distribution key!
             int cipher_key_size,mac_key_size, cur_index;
             unsigned char absValidity[DIST_KEY_EXPIRATION_TIME_SIZE];
-            cur_index = DIST_KEY_EXPIRATION_TIME_SIZE;
+            cur_index = DIST_KEY_EXPIRATION_TIME_SIZE; // 6임!!
 
             memcpy(absValidity, dec_buf,cur_index);
             
             // unsigned to int         
-            cipher_key_size =(int)dec_buf[cur_index];
+            cipher_key_size =(int)dec_buf[cur_index]; //
 
-            printf("cipher_key_size %d\n", cipher_key_size);  //   16나옴
+            printf("size of cipher_key: %d\n", cipher_key_size);  //   16나옴
             unsigned char cipher_key_value[cipher_key_size];
             cur_index +=1;
             slice(cipher_key_value,dec_buf,cur_index,cipher_key_size+cur_index);
             cur_index += cipher_key_size;
             mac_key_size =(int)dec_buf[cur_index];
-            // printf("%d ", mac_key_size); //  20나옴
+            printf("size of mac_key : %d\n", mac_key_size); //  32나옴
             unsigned char mac_key_value[mac_key_size];
             cur_index +=1;
-            for(int i=0; i<mac_key_size;i++)
-            {
-                mac_key_value[i] = dec_buf[i+cur_index];
-                printf("%x ", mac_key_value[i]);
-            }
-
-            printf("\n");
+            slice(mac_key_value,dec_buf,cur_index,cur_index+mac_key_size);
+            print_buf(mac_key_value,mac_key_size);
 
             // session_key, absValidity, cipher_key_value, mac_key_value;
             //symmetricDecryptAuthenticate 
             int mac_size = 32; // sha256일 때, 32 , SHA1 일 때, 20
             unsigned char symmetric_data[session_key_len -mac_size];
             unsigned char received_tag[mac_size];
-            printf("symm_data len: %ld , receiv_tag len: %ld \n", sizeof(symmetric_data),sizeof(received_tag));
+            printf("size of symm_data: %ld , size of receiv_tag: %ld \n", sizeof(symmetric_data),sizeof(received_tag));
             slice(symmetric_data,session_key,0,session_key_len - mac_size);
             slice(received_tag,session_key,session_key_len - mac_size,session_key_len);
-
+            
             // Hmac
             //mac_key_value 이용
             unsigned char  result[32];
@@ -615,7 +572,8 @@ int main(int argc, char* argv[])
             {
                 printf("Hmac success!!! \n");
             }
-
+            //////////// session key 320 중에서 mac size 32, 
+            ////////////  IV(Initialize Vector)는 16, 나머지 encryption data 272
             // IV , CBC mode
             int iv_size =16;
             AES_KEY enc_key_128;
@@ -683,26 +641,29 @@ int main(int argc, char* argv[])
             {
                 resp_session_length |= dec[NONCE_SIZE + resp_message_length+ strLen+i] <<8*(3-i);
             }
-            printf("length: %d\n\n" ,resp_session_length);
+            printf("length: %d\n\n" ,resp_session_length); // 3개
             // parseSessionkey(buf) 에서 parse_sessionkey 가 buf에 해당
             unsigned char parse_sessionkey[sizeof(dec_data) - 52]; // 256 - 52
             slice(parse_sessionkey,dec_data,52, sizeof(dec_data));
             // int cur_index_par =0;
             int offset = 8;
             int relval_length =6;
-
             int cur_index_par =0;
+            /// 70개씩 3번!
             for(int i = 0; i<resp_session_length;i++)
             {
                 printf("%d 번째! \n", i+1);
+                printf("key id size: %d\n", offset);
                 long int key_id = read_variable_UInt(parse_sessionkey,cur_index_par , offset);
                 printf("key id : %ld\n", key_id);
 
                 cur_index_par += offset;
+                printf("time size: %d \n", SESSION_KEY_EXPIRATION_TIME_SIZE);
                 make_time(parse_sessionkey, cur_index_par,SESSION_KEY_EXPIRATION_TIME_SIZE);
                 cur_index_par += SESSION_KEY_EXPIRATION_TIME_SIZE;
 
                 long int relvalidity = read_variable_UInt(parse_sessionkey, cur_index_par, relval_length);
+                printf("Relvalidity size: %d \n", relval_length);
                 printf("Relvalidity : %ld \n", relvalidity);
                 cur_index_par += relval_length; // 8 + 6 + 6;
                 int cipher_keysize = parse_sessionkey[cur_index_par];
@@ -719,7 +680,8 @@ int main(int argc, char* argv[])
                 unsigned char mac_key_value_par[mac_keysize];
                 slice(mac_key_value_par,parse_sessionkey, cur_index_par, cur_index_par+mac_keysize);
                 cur_index_par += mac_keysize;
-                printf("\n\n");
+                printf("cur_index_par : %d \n", cur_index_par);
+                printf("\n");
 
             }
             
@@ -741,7 +703,7 @@ int main(int argc, char* argv[])
 
             printf("updating distribution key: \n");
 
-            // absValidity, cipher_key_value, mac_key_value;
+            // absValidity, cipher_key_value, mac_key_value for Received Distribution key!
             printf("cipher_key_value ");
             print_buf(cipher_key_value, sizeof(cipher_key_value));
             printf("mac_key_value ");
@@ -749,6 +711,9 @@ int main(int argc, char* argv[])
             print_buf(absValidity, SESSION_KEY_EXPIRATION_TIME_SIZE);
             make_time(absValidity,0,SESSION_KEY_EXPIRATION_TIME_SIZE);
             printf("\nDistribution update success!!\n\n");
+
+            printf("received %d keys! \n", resp_session_length);
+
 
         }
 
