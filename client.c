@@ -73,7 +73,15 @@ struct sessionkey_info
     unsigned char rel_validity[6];
     unsigned char mac_key[32];
     unsigned char cipher_key[16];
+    unsigned char nonce[8];
 }; 
+
+struct received_nonce{
+    unsigned char client_nonce[NONCE_SIZE];
+    unsigned char server_nonce[NONCE_SIZE];
+    unsigned char dhParam[NONCE_SIZE];
+};
+
 
 struct sessionkey_info sessionkeyinfo[10];
 struct topic Topic;  // Topic declaration;
@@ -200,46 +208,76 @@ void serializeSessionkeyReq()
     }
 }
 
-void symmetricEncryptAuthenticate(struct sessionkey_info S[], unsigned char * p)
+
+void parseHandshake(unsigned char * buff, struct received_nonce A[]) {
+
+    if ((buff[0] & 1) != 0) {
+        // nonce exists
+        slice(A[0].server_nonce,buff,1, 1 + NONCE_SIZE);
+    }
+    if ((buff[0] & 2) != 0) {
+        // replayNonce exists
+        slice(A[0].client_nonce,buff,1+NONCE_SIZE,1+NONCE_SIZE*2);
+    }
+    if ((buff[0] & 4) != 0) {
+        slice(A[0].dhParam,buff,1+NONCE_SIZE*2,1+NONCE_SIZE*3);
+    }
+    
+};
+
+void symmetricEncryptAuthenticate(struct sessionkey_info S[], unsigned char * p, unsigned char * z, int a) // a는 key id를 넣을때 or 넣지 않을때!!
 {
-
-        unsigned char client_nonce[NONCE_SIZE];
-        printf("-- Client nonce --\n");
-        nonce_generator(client_nonce, NONCE_SIZE);
-
-        unsigned char hand_buf[1+ NONCE_SIZE*2];
-        hand_buf[0] = 1;
-        memcpy(hand_buf+1,client_nonce, 8);
-
+        
 
         int iv_size =16;
         unsigned char iv[iv_size];
-        nonce_generator(iv, iv_size);
+        printf("iv: \n");
+        RAND_bytes(iv,iv_size);
+        // nonce_generator(iv, iv_size);
+        print_buf(iv,iv_size);
 
+        unsigned char enc_mac[48]; 
         AES_KEY enc_key_128;
-        unsigned char enc[50];
-        if(AES_set_encrypt_key(S[0].cipher_key, sizeof(S[0].cipher_key)*8, &enc_key_128) < 0){
-            // print Error  
+        unsigned char enc[32];
+        memcpy(enc_mac,iv,iv_size);
+        if(AES_set_encrypt_key(S[0].cipher_key, 16*8, &enc_key_128) < 0)
+        {
+            printf("error!!!");
         }; 
-        AES_cbc_encrypt( hand_buf, enc,sizeof(hand_buf), &enc_key_128, iv, 1);
+        AES_cbc_encrypt( z, enc,17, &enc_key_128, iv, 1); // iv가 바뀐다?!
+        printf("enc data: \n");
         print_buf(enc, sizeof(enc));
         // iv 16 + enc 32
-        unsigned char enc_mac[48]; 
-        memcpy(enc_mac,iv,iv_size);
-        memcpy(enc_mac+iv_size,enc,32);
+
+        print_buf(iv,iv_size);
+        // memcpy(enc_mac,iv,iv_size);
+        memcpy(enc_mac+iv_size,enc,sizeof(enc));
+        printf("enc mac data: \n");
+        print_buf(enc_mac, sizeof(enc));
 
         // Hmac
         unsigned char hmac[32];
         unsigned int hmac_size = 32;
         HMAC(EVP_sha256(),S[0].mac_key , sizeof(S[0].mac_key),
          enc_mac, sizeof(enc_mac), hmac, &hmac_size);
+        printf("hmac : \n");
+        print_buf(hmac,sizeof(hmac));
         // enc + tag
-        memcpy(p,S[0].key_id,sizeof(S[0].key_id));
-        memcpy(p+sizeof(S[0].key_id),enc_mac,sizeof(enc_mac));
-        memcpy(p+sizeof(S[0].key_id)+sizeof(enc_mac), hmac, sizeof(hmac));
+        if(a ==1){ // key id를 넣을 때!
+            memcpy(p,S[0].key_id,sizeof(S[0].key_id)); // 8
+            memcpy(p+sizeof(S[0].key_id),enc_mac,sizeof(enc_mac)); //48
+            memcpy(p+sizeof(S[0].key_id)+sizeof(enc_mac), hmac, sizeof(hmac)); //32
+            printf("전체 내용 : \n");
 
-        print_buf(p,30);
+            print_buf(p,88);
+        }
+        else{ // key id를 넣지 않을 때!
+            memcpy(p,enc_mac,sizeof(enc_mac)); //48
+            memcpy(p+sizeof(enc_mac), hmac, sizeof(hmac)); //32
+            printf("전체 내용 : \n");
 
+            print_buf(p,80);          
+        }
 }
 
 // void TcpCommunication(int argc, char* argv[]) // TCP Connection(client)
@@ -483,7 +521,7 @@ int main(int argc, char* argv[])
 
             RSA * rsa = createRSA(signkey,0); 
 
-            // // sign!
+            //// sign!
             int sign_result = RSA_sign(NID_sha256, dig_enc,SHA256_DIGEST_LENGTH,
                 sigret, &sigret_Length, rsa);
             if(sign_result ==1)
@@ -492,7 +530,7 @@ int main(int argc, char* argv[])
                 printf("Sign success \n");
             }
 
-            // // verify!   
+            //// verify!   
             int verify_result = RSA_verify(NID_sha256, dig_enc,SHA256_DIGEST_LENGTH,
                 sigret, sigret_Length, rsa);
             if(verify_result ==1)
@@ -798,9 +836,6 @@ int main(int argc, char* argv[])
 
         if(connect(my_sock,(struct sockaddr*)&serv_addr,sizeof(serv_addr))==-1) //2번
             printf("connect error\n");
-        // unsigned char client_nonce[NONCE_SIZE];
-        // printf("-- Client nonce --\n");
-        // nonce_generator(client_nonce, NONCE_SIZE);
         
         // int iv_size =16;
         // unsigned char iv[iv_size];
@@ -831,17 +866,85 @@ int main(int argc, char* argv[])
         // unsigned int hmac_size = 32;
         // HMAC(EVP_sha256(),sessionkeyinfo[0].mac_key , sizeof(sessionkeyinfo[0].mac_key),
         //  enc_mac, sizeof(enc_mac), hmac, &hmac_size);
-
+        printf("key id: \n");
         print_buf(sessionkeyinfo[0].key_id,8);
+        printf("cipher key: \n");
+        print_buf(sessionkeyinfo[0].cipher_key,16);
+        printf("mac key: \n");
+        print_buf(sessionkeyinfo[0].mac_key,32);
 
         unsigned char hand_buf[88];
+        // unsigned char symmetric_data[48];
+        // unsigned char received_tag[32];
+        
         // handshake_buf[0] = SKEY_HANDSHAKE_1;
 
-        symmetricEncryptAuthenticate(sessionkeyinfo,hand_buf);
-        
+
+        printf("-- Client nonce --\n");
+        nonce_generator(sessionkeyinfo[0].nonce, NONCE_SIZE);
+
+        unsigned char hand_buf_data[1+ NONCE_SIZE*2];
+        memset(hand_buf_data,0,1+ NONCE_SIZE*2);
+        print_buf(hand_buf_data,17);
+        hand_buf_data[0] = 1;
+        memcpy(hand_buf_data+1,sessionkeyinfo[0].nonce, 8);
+        printf("serialize handshake : \n");
+        print_buf(hand_buf_data,17);
+
+        symmetricEncryptAuthenticate(sessionkeyinfo,hand_buf,hand_buf_data,1);
         // printf(hand_buf,10);
+        printf("key id: \n");
         print_buf(sessionkeyinfo[0].key_id,8);
-        print_buf(hand_buf,15);
+        printf("hand buf: \n");
+        print_buf(hand_buf,72);
+
+        // slice(symmetric_data,hand_buf,8,48+8);
+        // slice(received_tag,hand_buf,56,88);
+        
+
+        // unsigned char  result[32];
+        // unsigned int result_len = 32;
+        // unsigned char hmac[32];
+        // HMAC(EVP_sha256(),sessionkeyinfo[0].mac_key , 32, symmetric_data, sizeof(symmetric_data), result, &result_len);
+        
+        // printf("size of result : %ld\n", sizeof(result));
+        
+        // slice(hmac,result,0,sizeof(hmac));
+
+        // print_buf(hmac,32);
+        // print_buf(received_tag,32);
+        // if(strncmp((char *)hmac, (char *) received_tag, sizeof(hmac)) == 0 )
+        // {
+        //     printf("Hmac success!!! \n");
+        // }
+        //////////////////////
+        // Hmac authentication method.
+        
+        // mac_key_value 이용
+
+        //////////// session key 320 중에서 mac size 32, 
+        ////////////  IV(Initialize Vector)는 16, 나머지 encryption data 272
+
+        // CBC mode (IV size 16, encryption data 272)
+        // int iv_size =16;
+        // AES_KEY enc_key_128;
+        // unsigned char iv[iv_size]; //16
+        // unsigned char enc_symmetric_cipher[sizeof(symmetric_data)-iv_size];
+        // printf("size of encrypted message : %ld\n", sizeof(enc_symmetric_cipher));
+
+        // unsigned char dec[100];
+        // slice(iv,symmetric_data,0,iv_size);
+        // slice(enc_symmetric_cipher,symmetric_data,iv_size,sizeof(symmetric_data));
+        // printf("iv 는? ? \n");
+        // print_buf(iv, 16);
+
+        // if(AES_set_decrypt_key(sessionkeyinfo[0].cipher_key, sizeof(sessionkeyinfo[0].cipher_key)*8, &enc_key_128) < 0){
+        //     printf("error");
+        // }; 
+        // AES_cbc_encrypt( enc_symmetric_cipher, dec,sizeof(enc_symmetric_cipher), &enc_key_128, iv, 0);
+        // printf("decrypted value: \n");
+        // print_buf(dec,32);
+        ////////////////////////
 
 
         //payload length buffer 크기 구하는거 사실상 paload length 넣어주고 return으로 buffer 크기만 받으면 되는거 아닌가?
@@ -856,7 +959,7 @@ int main(int argc, char* argv[])
             num >>=7;
         }
         extra_buf[n-1] = num;
-        printf("num ? %d\n",n );
+        printf("num ? extra buf %d %d\n",n ,num);
 
         unsigned char handshake_buf[1+sizeof(hand_buf)+n];
         handshake_buf[0] = SKEY_HANDSHAKE_1;
@@ -866,9 +969,122 @@ int main(int argc, char* argv[])
         write(my_sock, handshake_buf,sizeof(handshake_buf));
 
         printf("switching to HANDSHAKE_1_SENT\n");
-         // read
+        // read
         memset(message,0x00,sizeof(message));
         str_len = read(my_sock,message,sizeof(message)-1); 
-        // read
-}
 
+        printf("Received handshake2 !! \n");
+        print_buf(message,str_len);
+        printf("Message size : %d\n", str_len);
+
+        printf("Message type: %d\n", message[0]);
+
+        int num_buf =0;
+        int message_length;
+        printf("\n");
+
+        for (int i =0; i<sizeof(message)&& i<5; i++)
+        {
+            num_buf |= (message[1+i]& 127) <<(7 * i);
+            if((message[1+i]&128) == 0 )
+            {
+                i+= 1;
+                message_length = i;
+                printf("num = %d, payload_len = %d \n", num_buf,i);
+                break;
+            }
+        }
+        
+        unsigned char payload_buf[num_buf];
+        slice(payload_buf,message, 2,str_len);
+        print_buf(payload_buf,80);
+        int mac_size = 32;
+        unsigned char received_tag[mac_size];
+        unsigned char enc[num_buf-mac_size];
+        slice(received_tag,payload_buf,num_buf-mac_size,num_buf);
+        slice(enc,payload_buf,0,num_buf-mac_size);
+        print_buf(enc,48);
+
+        unsigned char  result[32];
+        unsigned int result_len = 32;
+        unsigned char hmac[32];
+        HMAC(EVP_sha256(),sessionkeyinfo[0].mac_key , 32, enc, sizeof(enc), result, &result_len);
+        
+        printf("size of result : %ld\n", sizeof(result));
+        
+        slice(hmac,result,0,sizeof(hmac));
+
+        print_buf(hmac,32);
+        print_buf(received_tag,32);
+        if(strncmp((char *)hmac, (char *) received_tag, sizeof(hmac)) == 0 )
+        {
+            printf("Hmac success!!! \n");
+        }    
+
+        int iv_size =16;
+        AES_KEY enc_key_128;
+        unsigned char iv[iv_size]; //16
+        unsigned char enc_symmetric_cipher[sizeof(enc)-iv_size];
+        printf("size of encrypted message : %ld\n", sizeof(enc_symmetric_cipher));
+
+        unsigned char dec[100];
+        slice(iv,enc,0,iv_size);
+        slice(enc_symmetric_cipher,enc,iv_size,sizeof(enc));
+        printf("iv 는? ? \n");
+        print_buf(iv, 16);
+
+        if(AES_set_decrypt_key(sessionkeyinfo[0].cipher_key, sizeof(sessionkeyinfo[0].cipher_key)*8, &enc_key_128) < 0){
+            printf("error");
+        }; 
+        AES_cbc_encrypt( enc_symmetric_cipher, dec,sizeof(enc_symmetric_cipher), &enc_key_128, iv, 0);
+        printf("decrypted value: \n");
+        print_buf(dec,32);
+
+        struct received_nonce nonce[2];
+
+        
+        parseHandshake(dec,nonce);
+        printf("Client Nonce: \n");
+        print_buf(nonce[0].client_nonce,NONCE_SIZE);
+        printf("Server Nonce: \n");
+        print_buf(nonce->server_nonce,NONCE_SIZE);
+        if(strncmp((char *)nonce[0].client_nonce, (char *) sessionkeyinfo[0].nonce, NONCE_SIZE) == 0 )
+        {
+            printf("Nonce가 일치했습니다. \n");
+        }
+        else
+            printf("auth nonce NOT verified\n");
+
+        printf("-- Server nonce --\n");
+        unsigned char hand_buf2_data[1+ NONCE_SIZE*2];
+        memset(hand_buf2_data,0,1+ NONCE_SIZE*2);
+        print_buf(hand_buf2_data,17);
+        hand_buf2_data[0] = 2;
+        memcpy(hand_buf2_data+1+NONCE_SIZE,nonce[0].server_nonce, 8);
+        printf("serialize handshake : \n");
+        print_buf(hand_buf2_data,17);
+
+        unsigned char hand_buf2[80];
+
+        symmetricEncryptAuthenticate(sessionkeyinfo,hand_buf2,hand_buf2_data, 0);
+
+
+        unsigned char extra_buf2[5];
+        unsigned int num2 = sizeof(hand_buf2);
+        int n2 = 1;
+        while(num2 > 127)
+        {
+            extra_buf2[n2-1] = 128 | num2 & 127;
+            n2 += 1;
+            num2 >>=7;
+        }
+        extra_buf2[n-1] = num2;
+        printf("num ? extra buf %d %d\n",n2 ,num2);
+
+        unsigned char handshake_buf2[1+sizeof(hand_buf2)+n2];
+        handshake_buf2[0] = SKEY_HANDSHAKE_3;
+        memcpy(handshake_buf2+1,extra_buf2,n2);            
+        memcpy(handshake_buf2+1+n2,hand_buf2,sizeof(hand_buf2));
+        print_buf(handshake_buf2,sizeof(handshake_buf2));
+        write(my_sock, handshake_buf2,sizeof(handshake_buf2));
+}
