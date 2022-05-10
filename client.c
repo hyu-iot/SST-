@@ -42,6 +42,7 @@ long long int: "long long int", unsigned long long int: "unsigned long long int"
 #define SKEY_HANDSHAKE_1 30   //client 가 auth에게 보낼때
 #define SKEY_HANDSHAKE_2 31
 #define SKEY_HANDSHAKE_3 32
+#define SECURE_COMM_MSG 33
 int padding = RSA_PKCS1_PADDING;
 
 
@@ -225,7 +226,7 @@ void parseHandshake(unsigned char * buff, struct received_nonce A[]) {
     
 };
 
-void symmetricEncryptAuthenticate(struct sessionkey_info S[], unsigned char * p, unsigned char * z, int a) // a는 key id를 넣을때 or 넣지 않을때!!
+void symmetricEncryptAuthenticate(struct sessionkey_info S[], unsigned char * p, unsigned char * z, int b, int a) // a는 key id를 넣을때 or 넣지 않을때!!
 {
         
 
@@ -244,7 +245,7 @@ void symmetricEncryptAuthenticate(struct sessionkey_info S[], unsigned char * p,
         {
             printf("error!!!");
         }; 
-        AES_cbc_encrypt( z, enc,17, &enc_key_128, iv, 1); // iv가 바뀐다?!
+        AES_cbc_encrypt( z, enc,b, &enc_key_128, iv, 1); // iv가 바뀐다?!
         printf("enc data: \n");
         print_buf(enc, sizeof(enc));
         // iv 16 + enc 32
@@ -891,7 +892,7 @@ int main(int argc, char* argv[])
         printf("serialize handshake : \n");
         print_buf(hand_buf_data,17);
 
-        symmetricEncryptAuthenticate(sessionkeyinfo,hand_buf,hand_buf_data,1);
+        symmetricEncryptAuthenticate(sessionkeyinfo,hand_buf,hand_buf_data,17,1);
         // printf(hand_buf,10);
         printf("key id: \n");
         print_buf(sessionkeyinfo[0].key_id,8);
@@ -1066,7 +1067,7 @@ int main(int argc, char* argv[])
 
         unsigned char hand_buf2[80];
 
-        symmetricEncryptAuthenticate(sessionkeyinfo,hand_buf2,hand_buf2_data, 0);
+        symmetricEncryptAuthenticate(sessionkeyinfo,hand_buf2, hand_buf2_data, 17, 0);
 
 
         unsigned char extra_buf2[5];
@@ -1087,4 +1088,53 @@ int main(int argc, char* argv[])
         memcpy(handshake_buf2+1+n2,hand_buf2,sizeof(hand_buf2));
         print_buf(handshake_buf2,sizeof(handshake_buf2));
         write(my_sock, handshake_buf2,sizeof(handshake_buf2));
+
+        while(1)
+        {
+            unsigned char command[10];
+            unsigned char message[32];
+            memset(message,0,32);
+            print_buf(message,32);
+            scanf("%s", command);
+            ////////////// seq num 작성할 차례 ///////////
+
+            if(strncmp((char *) command, (char *) "send", 4) == 0)
+            {
+                int seq_num =0;
+                scanf("%s", message);
+                unsigned char msg_buf[80];
+                unsigned char msg_data[32];
+                int msg_data_len = sizeof(msg_data);
+
+                memset(msg_data,0,msg_data_len);
+                memcpy(msg_data+8,message,strlen(message));
+
+                symmetricEncryptAuthenticate(sessionkeyinfo,msg_buf,msg_data,msg_data_len,0);
+                
+                unsigned char extra_buf3[5];
+                unsigned int num3 = sizeof(msg_buf);
+                int n3 = 1;
+                while(num3 > 127)
+                {
+                    extra_buf3[n3-1] = 128 | num3 & 127;
+                    n3 += 1;
+                    num3 >>=7;
+                }
+                extra_buf2[n3-1] = num3;
+                printf("num , extra buf %d %d\n",n3 ,num3);
+
+                unsigned char message_buf[1+sizeof(msg_buf)+n3];
+                message_buf[0] = SECURE_COMM_MSG;
+                memcpy(message_buf+1,extra_buf2,n3);            
+                memcpy(message_buf+1+n3,msg_buf,sizeof(msg_buf));
+                write(my_sock, message_buf,sizeof(message_buf));
+                
+                printf("send the message: %s\n",message );
+            }
+                else if(strncmp((char *) command, (char *) "finComm", 7) == 0 )
+            {
+                printf("Exit !!\n");
+                break;
+            }
+        }
 }
