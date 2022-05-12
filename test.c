@@ -39,7 +39,7 @@ long long int: "long long int", unsigned long long int: "unsigned long long int"
 #define DIST_KEY_EXPIRATION_TIME_SIZE 6
 #define SESSION_KEY_ID_SIZE 8
 #define SESSION_KEY_EXPIRATION_TIME_SIZE 6
-#define SKEY_HANDSHAKE_1 30   //client 가 auth에게 보낼때
+#define SKEY_HANDSHAKE_1 30   //client �� auth���� ������
 #define SKEY_HANDSHAKE_2 31
 #define SKEY_HANDSHAKE_3 32
 #define SECURE_COMM_MSG 33
@@ -136,6 +136,13 @@ void slice(unsigned char * des_buf, unsigned char * buf, int a, int b )
         des_buf[i] = buf[a+i];
     }
 }
+void print_Last_error(char *msg){
+    char * err = malloc(130);;
+    ERR_load_crypto_strings();
+    ERR_error_string(ERR_get_error(), err);
+    printf("%s ERROR: %s\n",msg, err);
+    free(err);
+}
 void sender()
 {
     strcpy(SessionKeyReq.Sender,sender_req);
@@ -204,7 +211,7 @@ void serializeSessionkeyReq()
         memcpy(buf+NONCE_SIZE*2+NUMKEY+1+strlen(SessionKeyReq.Sender),SessionKeyReq.Purpose_len,1); 
         memcpy(buf+NONCE_SIZE*2+NUMKEY+1+strlen(SessionKeyReq.Sender)+1,SessionKeyReq.Purpose,strlen(SessionKeyReq.Purpose)); 
         
-    printf("-- Serialize한 내용 -- \n");
+    printf("-- Serialize�� ���� -- \n");
     print_buf(buf,sizeof(buf));
     }
 }
@@ -226,7 +233,7 @@ void parseHandshake(unsigned char * buff, struct received_nonce A[]) {
     
 };
 
-void symmetricEncryptAuthenticate(struct sessionkey_info S[], unsigned char * p, unsigned char * z, int b, int a) // a는 key id를 넣을때 or 넣지 않을때!!
+void symmetricEncryptAuthenticate(struct sessionkey_info S[], unsigned char * p, unsigned char * z, int b, int a) // a�� key id�� ������ or ���� ������!!
 {
         
 
@@ -245,7 +252,7 @@ void symmetricEncryptAuthenticate(struct sessionkey_info S[], unsigned char * p,
         {
             printf("error!!!");
         }; 
-        AES_cbc_encrypt( z, enc,b, &enc_key_128, iv, 1); // iv가 바뀐다?!
+        AES_cbc_encrypt( z, enc,b, &enc_key_128, iv, 1); // iv�� �ٲ��?!
         printf("enc data: \n");
         print_buf(enc, sizeof(enc));
         // iv 16 + enc 32
@@ -264,18 +271,18 @@ void symmetricEncryptAuthenticate(struct sessionkey_info S[], unsigned char * p,
         printf("hmac : \n");
         print_buf(hmac,sizeof(hmac));
         // enc + tag
-        if(a ==1){ // key id를 넣을 때!
+        if(a ==1){ // key id�� ���� ��!
             memcpy(p,S[0].key_id,sizeof(S[0].key_id)); // 8
             memcpy(p+sizeof(S[0].key_id),enc_mac,sizeof(enc_mac)); //48
             memcpy(p+sizeof(S[0].key_id)+sizeof(enc_mac), hmac, sizeof(hmac)); //32
-            printf("전체 내용 : \n");
+            printf("��ü ���� : \n");
 
             print_buf(p,88);
         }
-        else{ // key id를 넣지 않을 때!
+        else{ // key id�� ���� ���� ��!
             memcpy(p,enc_mac,sizeof(enc_mac)); //48
             memcpy(p+sizeof(enc_mac), hmac, sizeof(hmac)); //32
-            printf("전체 내용 : \n");
+            printf("��ü ���� : \n");
 
             print_buf(p,80);          
         }
@@ -291,7 +298,7 @@ void symmetricEncryptAuthenticate(struct sessionkey_info S[], unsigned char * p,
 //         printf("%s <IP> <PORT>\n", argv[0]);
 //         exit(1);
 //     }
-//     my_sock = socket(PF_INET,SOCK_STREAM,0); //1번
+//     my_sock = socket(PF_INET,SOCK_STREAM,0); //1��
 //     if(my_sock == -1)
 //         printf("socket error \n");
 //     memset(&serv_addr,0,sizeof(serv_addr));
@@ -299,10 +306,10 @@ void symmetricEncryptAuthenticate(struct sessionkey_info S[], unsigned char * p,
 //     serv_addr.sin_addr.s_addr=inet_addr(argv[1]);
 //     serv_addr.sin_port=htons(atoi(argv[2]));
 
-//     if(connect(my_sock,(struct sockaddr*)&serv_addr,sizeof(serv_addr))==-1) //2번
+//     if(connect(my_sock,(struct sockaddr*)&serv_addr,sizeof(serv_addr))==-1) //2��
 //         printf("connect error\n");
 //     memset(message,0x00,sizeof(message));
-//     str_len = read(my_sock,message,sizeof(message)-1); //3번
+//     str_len = read(my_sock,message,sizeof(message)-1); //3��
 //     if(str_len==-1)
 //         printf("read error\n");
 //     if(message[0] == 0)
@@ -312,7 +319,7 @@ void symmetricEncryptAuthenticate(struct sessionkey_info S[], unsigned char * p,
 //     {
 //         printf("%x ",message[i]);
 //     }
-//     close(my_sock); //4번
+//     close(my_sock); //4��
 // }
 //publice key
 char publickey[] = "-----BEGIN PUBLIC KEY-----\n"\
@@ -387,20 +394,20 @@ RSA * createRSA(unsigned char * key,int public)
 {
     RSA *rsa= NULL;
     BIO *keybio ;
-    keybio = BIO_new_mem_buf(key, -1); // 읽기 전용 메모리 만들기 BIO
+    keybio = BIO_new_mem_buf(key, -1); // �б� ���� �޸� ����� BIO
     if (keybio==NULL)
     {
         printf( "Failed to create key BIO");
         return 0;
     }
     
-    /* PEM형식인 키 파일을 읽어와서 RSA 구조체 형식으로 변환 */
+    /* PEM������ Ű ������ �о�ͼ� RSA ����ü �������� ��ȯ */
     
-    if(public) // PEM public 키로 RSA 생성
+    if(public) // PEM public Ű�� RSA ����
     {
         rsa = PEM_read_bio_RSA_PUBKEY(keybio, &rsa, NULL, NULL);
     }
-    else // PEM private 키로 RSA 생성
+    else // PEM private Ű�� RSA ����
     {
         rsa = PEM_read_bio_RSAPrivateKey(keybio, &rsa, NULL, NULL);
     }
@@ -414,7 +421,20 @@ RSA * createRSA(unsigned char * key,int public)
 
 int public_encrypt(unsigned char * data,int data_len, unsigned char *encrypted) 
 {
-    RSA * rsa = createRSA(publickey,1);
+    FILE *pemFile = fopen("../../auth_certs/Auth101EntityCert.pem", "rb");
+    X509 *cert = PEM_read_X509(pemFile, NULL, NULL, NULL );
+    EVP_PKEY *pkey = X509_get_pubkey(cert);
+    if (pkey == NULL){
+        print_Last_error("public key getting fail");
+    }
+    int id = EVP_PKEY_id(pkey);
+    if ( id != EVP_PKEY_RSA ) {
+        print_Last_error("is not RSA Encryption file");
+    }
+    RSA *rsa = EVP_PKEY_get1_RSA(pkey);
+    if ( rsa == NULL ) {
+        print_Last_error("EVP_PKEY_get1_RSA fail");
+    }
     int result = RSA_public_encrypt(data_len,data,encrypted,rsa,padding);
     return result; // RSA_public_encrypt() returns the size of the encrypted data 
 }
@@ -422,7 +442,8 @@ int public_encrypt(unsigned char * data,int data_len, unsigned char *encrypted)
 int private_decrypt(unsigned char * enc_data,int data_len, unsigned char *decrypted, char *key)
 {
 
-    RSA * rsa = createRSA(key,0); 
+    FILE *keyfile = fopen("../../credentials/keys/net1/Net1.ClientKey.pem", "rb"); 
+    RSA *rsa = PEM_read_RSAPrivateKey(keyfile, NULL, NULL, NULL);
     int  result = RSA_private_decrypt(data_len,enc_data,decrypted,rsa,padding);
     return result;
 }
@@ -459,18 +480,18 @@ int main(int argc, char* argv[])
             printf("%s <IP> <PORT>\n", argv[0]);
             exit(1);
         }
-        my_sock = socket(PF_INET,SOCK_STREAM,0); //1번
+        my_sock = socket(PF_INET,SOCK_STREAM,0); //1��
         if(my_sock == -1)
             printf("socket error \n");
         memset(&serv_addr,0,sizeof(serv_addr));
         serv_addr.sin_family = AF_INET;
         serv_addr.sin_addr.s_addr=inet_addr(argv[1]);
-        printf("argv 타입은: %s \n", argv[2]);
+        printf("argv Ÿ����: %s \n", argv[2]);
         
         
         serv_addr.sin_port=htons(atoi(argv[2]));
 
-        if(connect(my_sock,(struct sockaddr*)&serv_addr,sizeof(serv_addr))==-1) //2번
+        if(connect(my_sock,(struct sockaddr*)&serv_addr,sizeof(serv_addr))==-1) //2��
             printf("connect error\n");
         memset(message,0x00,sizeof(message));
         str_len = read(my_sock,message,sizeof(message)-1); // message
@@ -490,7 +511,7 @@ int main(int argc, char* argv[])
             nonce_generator(SessionKeyReq.Entity_nonce, NONCE_SIZE);
             purpose();
 
-            //Auth_Hello 받았을 때!
+            //Auth_Hello �޾��� ��!
             serializeSessionkeyReq();
             
             unsigned char encrypted[2048] = {};
@@ -506,21 +527,22 @@ int main(int argc, char* argv[])
             printf(" -- encrypted value -- \n");
             print_buf(encrypted, encrypted_length);
             
-            // Decryption을 통해 Encryption이 잘됐는지 확인!!
-            int decrypted_length = private_decrypt(encrypted,encrypted_length,decrypted,privatekey);
-            printf("decrypted length: %d\n", decrypted_length);
-            printf(" -- decrypted value -- \n");
-            print_buf(decrypted, decrypted_length); 
+            // Decryption�� ���� Encryption�� �ߵƴ��� Ȯ��!!
+            // int decrypted_length = private_decrypt(encrypted,encrypted_length,decrypted,privatekey);
+            // printf("decrypted length: %d\n", decrypted_length);
+            // printf(" -- decrypted value -- \n");
+            // print_buf(decrypted, decrypted_length); 
 
-            //strlen 을 하게되면 sizeof 보다 넘어갈 시에 \n이 없다면 계속 불러옴!!
+            //strlen �� �ϰԵǸ� sizeof ���� �Ѿ �ÿ� \n�� ���ٸ� ��� �ҷ���!!
 
             //////////////////sign part////////////////////////
             // make digest message
-            // 작게 만들어줘야 RSA sign이 가능함
+            // �۰� �������� RSA sign�� ������
 
             make_degest_msg(dig_enc, encrypted, encrypted_length);
 
-            RSA * rsa = createRSA(signkey,0); 
+            FILE *keyfile = fopen("../../credentials/keys/net1/Net1.ClientKey.pem", "rb"); 
+            RSA *rsa = PEM_read_RSAPrivateKey(keyfile, NULL, NULL, NULL);
 
             //// sign!
             int sign_result = RSA_sign(NID_sha256, dig_enc,SHA256_DIGEST_LENGTH,
@@ -537,7 +559,7 @@ int main(int argc, char* argv[])
             if(verify_result ==1)
                 printf("verify success\n");
 
-            /// enc+sign length 구해서 buffer에 저장
+            /// enc+sign length ���ؼ� buffer�� ����
             unsigned char extra_buf[5];
             unsigned int num = encrypted_length + sigret_Length;
             int n = 1;
@@ -550,7 +572,7 @@ int main(int argc, char* argv[])
             extra_buf[n-1] = num;
 
 
-            // Total message buffer 설정하고 msg_type부터 넣기!
+            // Total message buffer �����ϰ� msg_type���� �ֱ�!
             // msg type(1) + data length512(2) + data(512){encrypt 256+ sign 256} 
             unsigned char buffer [1 + n + encrypted_length + sigret_Length ];
             buffer[0] = SESSION_KEY_REQ_IN_PUB_ENC;
@@ -563,14 +585,14 @@ int main(int argc, char* argv[])
             write(my_sock, buffer,sizeof(buffer));
     
         }
-        ///// Auth에서 또 message를 보냄!!
+        ///// Auth���� �� message�� ����!!
         unsigned char message[2000];
         
         memset(message,0x00,sizeof(message));
-        str_len = read(my_sock,message,sizeof(message)-1); //3번
+        str_len = read(my_sock,message,sizeof(message)-1); //3��
         if(str_len==-1)
             printf("read error\n");
-        //////// msg type 21일 때!
+        //////// msg type 21�� ��!
         if(message[0] == 21)
         {   
             printf("\nreceived session key response with distribution key attached! \n");
@@ -598,15 +620,15 @@ int main(int argc, char* argv[])
             }
             
             // slice(payload,message, 1+message_length, )
-            //distributionkeybuf 512개
+            //distributionkeybuf 512��
             unsigned char distribution_key[512];
             memcpy(distribution_key, payload,sizeof(distribution_key));
-            //sessionkeyBuf 320개
+            //sessionkeyBuf 320��
             int session_key_len = num-sizeof(distribution_key); 
             unsigned char session_key[session_key_len];
 
-            // 이 길이는 sessionkeyreq에서 key의 개수에따라 다름 ex) 1개 -176, 3개 - 320
-            printf("sessionkey_buf 길이 : %ld\n", sizeof(session_key)); 
+            // �� ���̴� sessionkeyreq���� key�� ���������� �ٸ� ex) 1�� -176, 3�� - 320
+            printf("sessionkey_buf ���� : %ld\n", sizeof(session_key)); 
             slice(session_key, payload,sizeof(distribution_key),num);
             
             // distribution - ret_data, ret_signiture;
@@ -618,7 +640,20 @@ int main(int argc, char* argv[])
             unsigned char dig_enc[SHA256_DIGEST_LENGTH];
             make_degest_msg(dig_enc , ret_data,sizeof(ret_data) );
             ////// Verify
-            RSA * rsa1 = createRSA(publickey,1); 
+            FILE *pemFile = fopen("./../../auth_certs/Auth101EntityCert.pem", "rb");
+            X509 *cert = PEM_read_X509( pemFile, NULL, NULL, NULL );
+            EVP_PKEY *pkey = X509_get_pubkey(cert);
+            if (pkey == NULL){
+                print_Last_error("public key getting fail");
+            }
+            int id = EVP_PKEY_id(pkey);
+            if ( id != EVP_PKEY_RSA ) {
+                print_Last_error("is not RSA Encryption file");
+            }
+            RSA *rsa1 = EVP_PKEY_get1_RSA(pkey);
+            if ( rsa1 == NULL ) {
+                print_Last_error("EVP_PKEY_get1_RSA fail");
+            } 
 
             int verify_result = RSA_verify(NID_sha256, dig_enc ,sizeof(dig_enc),
               ret_signiture, sizeof(ret_signiture), rsa1);
@@ -631,24 +666,24 @@ int main(int argc, char* argv[])
             printf("decrypted length: %d\n", dec_length);
             printf(" -- decrypted value -- \n");
             print_buf(dec_buf, dec_length);
-            // parseDistributionKey 나누기!!
+            // parseDistributionKey ������!!
             // absValidity, cipher_key_value, mac_key_value for Received Distribution key!
             int cipher_key_size,mac_key_size, cur_index;
             unsigned char absValidity[DIST_KEY_EXPIRATION_TIME_SIZE];
-            cur_index = DIST_KEY_EXPIRATION_TIME_SIZE; // 6임!!
+            cur_index = DIST_KEY_EXPIRATION_TIME_SIZE; // 6��!!
 
             memcpy(absValidity, dec_buf,cur_index);
             
             // unsigned to int         
             cipher_key_size =(int)dec_buf[cur_index]; //
 
-            printf("size of cipher_key: %d\n", cipher_key_size);  //   16나옴
+            printf("size of cipher_key: %d\n", cipher_key_size);  //   16����
             unsigned char cipher_key_value[cipher_key_size];
             cur_index +=1;
             slice(cipher_key_value,dec_buf,cur_index,cipher_key_size+cur_index);
             cur_index += cipher_key_size;
             mac_key_size =(int)dec_buf[cur_index];
-            printf("size of mac_key : %d\n", mac_key_size); //  32나옴
+            printf("size of mac_key : %d\n", mac_key_size); //  32����
             unsigned char mac_key_value[mac_key_size];
             cur_index +=1;
             slice(mac_key_value,dec_buf,cur_index,cur_index+mac_key_size);
@@ -657,7 +692,7 @@ int main(int argc, char* argv[])
             // session_key, absValidity, cipher_key_value, mac_key_value;
 
             //symmetricDecryptAuthenticate 
-            int mac_size = 32; // sha256일 때, 32 , SHA1 일 때, 20
+            int mac_size = 32; // sha256�� ��, 32 , SHA1 �� ��, 20
             unsigned char symmetric_data[session_key_len -mac_size];
             unsigned char received_tag[mac_size];
             printf("size of symm_data: %ld , size of receiv_tag: %ld \n", sizeof(symmetric_data),sizeof(received_tag));
@@ -666,7 +701,7 @@ int main(int argc, char* argv[])
 
             // Hmac authentication method.
             
-            //mac_key_value 이용
+            //mac_key_value �̿�
             unsigned char  result[32];
             unsigned int result_len = 32;
             unsigned char hmac[32];
@@ -680,8 +715,8 @@ int main(int argc, char* argv[])
             {
                 printf("Hmac success!!! \n");
             }
-            //////////// session key 320 중에서 mac size 32, 
-            ////////////  IV(Initialize Vector)는 16, 나머지 encryption data 272
+            //////////// session key 320 �߿��� mac size 32, 
+            ////////////  IV(Initialize Vector)�� 16, ������ encryption data 272
 
             // CBC mode (IV size 16, encryption data 272)
             int iv_size =16;
@@ -723,10 +758,10 @@ int main(int argc, char* argv[])
                     break;
                 }
             }
-            //dec_data는 entity_nonce 8개 , 그 후 개수 39개를 나타내는 버퍼 1개, crypto spec 39개 0 0 0 3 => 3개
-            //NONCE_SIZE + resp_message_length(9)부터 NONCE_SIZE + resp_message_length+strLen 까지
+            //dec_data�� entity_nonce 8�� , �� �� ���� 39���� ��Ÿ���� ���� 1��, crypto spec 39�� 0 0 0 3 => 3��
+            //NONCE_SIZE + resp_message_length(9)���� NONCE_SIZE + resp_message_length+strLen ����
 
-            // cryptoSpec 선언하는 부분!!!!
+            // cryptoSpec �����ϴ� �κ�!!!!
             int strLen = resp_num; // 39
             unsigned char resp_str[strLen];
             printf("crypto spec : ");
@@ -742,20 +777,20 @@ int main(int argc, char* argv[])
             {
                 resp_session_length |= dec[NONCE_SIZE + resp_message_length+ strLen+i] <<8*(3-i);
             }
-            printf("key length: %d\n\n" ,resp_session_length); // 3개
-            // parseSessionkey(buf) 에서 parse_sessionkey 가 buf에 해당
+            printf("key length: %d\n\n" ,resp_session_length); // 3��
+            // parseSessionkey(buf) ���� parse_sessionkey �� buf�� �ش�
             unsigned char parse_sessionkey[sizeof(dec_data) - 52]; // 256 - 52
             slice(parse_sessionkey,dec_data, 52, sizeof(dec_data));
             // int cur_index_par =0;
             int offset = 8;
             int relval_length =6;
             int cur_index_par =0;
-            /// 70개씩 3번!
+            /// 70���� 3��!
             struct sessionkey_info session_key_info;
 
             for(int i = 0; i<resp_session_length;i++)
             {
-                printf("%d 번째! \n", i+1);
+                printf("%d ��°! \n", i+1);
                 printf("key id size: %d\n", offset);
                 slice(session_key_info.key_id,parse_sessionkey,cur_index_par,cur_index_par+offset);
                 long int key_id = read_variable_UInt(parse_sessionkey,cur_index_par , offset);
@@ -795,13 +830,13 @@ int main(int argc, char* argv[])
 
             }
             
-            //resp_reply_nonce랑 SessionKeyReq.Entity_nonce랑 맞춰봐야함
+            //resp_reply_nonce�� SessionKeyReq.Entity_nonce�� ���������
             // resp_reply_nonce SessionKeyReq.Entity_nonce
             printf("-- replyNonce in sessionKeyResp -- \n");
             print_buf(resp_reply_nonce,NONCE_SIZE);
             if(strncmp((char *)resp_reply_nonce, (char *) SessionKeyReq.Entity_nonce, NONCE_SIZE) == 0 )
             {
-                printf("Nonce가 일치했습니다. \n");
+                printf("Nonce�� ��ġ�߽��ϴ�. \n");
             }
             else
                 printf("auth nonce NOT verified\n");
@@ -822,20 +857,20 @@ int main(int argc, char* argv[])
 
             printf("received %d keys! \n", resp_session_length);
         }
-        // close(my_sock); //4번
+        // close(my_sock); //4��
 
         if(argc != 3)
         {
             printf("%s <IP> <PORT>\n", argv[0]);
             exit(1);
         }
-        my_sock = socket(PF_INET,SOCK_STREAM,0); //1번
+        my_sock = socket(PF_INET,SOCK_STREAM,0); //1��
         if(my_sock == -1)
             printf("socket error \n");
         
         serv_addr.sin_port=htons(atoi("21100")); //21100
 
-        if(connect(my_sock,(struct sockaddr*)&serv_addr,sizeof(serv_addr))==-1) //2번
+        if(connect(my_sock,(struct sockaddr*)&serv_addr,sizeof(serv_addr))==-1) //2��
             printf("connect error\n");
         
         // int iv_size =16;
@@ -921,10 +956,10 @@ int main(int argc, char* argv[])
         //////////////////////
         // Hmac authentication method.
         
-        // mac_key_value 이용
+        // mac_key_value �̿�
 
-        //////////// session key 320 중에서 mac size 32, 
-        ////////////  IV(Initialize Vector)는 16, 나머지 encryption data 272
+        //////////// session key 320 �߿��� mac size 32, 
+        ////////////  IV(Initialize Vector)�� 16, ������ encryption data 272
 
         // CBC mode (IV size 16, encryption data 272)
         // int iv_size =16;
@@ -936,7 +971,7 @@ int main(int argc, char* argv[])
         // unsigned char dec[100];
         // slice(iv,symmetric_data,0,iv_size);
         // slice(enc_symmetric_cipher,symmetric_data,iv_size,sizeof(symmetric_data));
-        // printf("iv 는? ? \n");
+        // printf("iv ��? ? \n");
         // print_buf(iv, 16);
 
         // if(AES_set_decrypt_key(sessionkeyinfo[0].cipher_key, sizeof(sessionkeyinfo[0].cipher_key)*8, &enc_key_128) < 0){
@@ -948,7 +983,7 @@ int main(int argc, char* argv[])
         ////////////////////////
 
 
-        //payload length buffer 크기 구하는거 사실상 paload length 넣어주고 return으로 buffer 크기만 받으면 되는거 아닌가?
+        //payload length buffer ũ�� ���ϴ°� ��ǻ� paload length �־��ְ� return���� buffer ũ�⸸ ������ �Ǵ°� �ƴѰ�?
 
         unsigned char extra_buf[5];
         unsigned int num = sizeof(hand_buf);
@@ -1031,7 +1066,7 @@ int main(int argc, char* argv[])
         unsigned char dec[100];
         slice(iv,enc,0,iv_size);
         slice(enc_symmetric_cipher,enc,iv_size,sizeof(enc));
-        printf("iv 는? ? \n");
+        printf("iv ��? ? \n");
         print_buf(iv, 16);
 
         if(AES_set_decrypt_key(sessionkeyinfo[0].cipher_key, sizeof(sessionkeyinfo[0].cipher_key)*8, &enc_key_128) < 0){
@@ -1051,7 +1086,7 @@ int main(int argc, char* argv[])
         print_buf(nonce->server_nonce,NONCE_SIZE);
         if(strncmp((char *)nonce[0].client_nonce, (char *) sessionkeyinfo[0].nonce, NONCE_SIZE) == 0 )
         {
-            printf("Nonce가 일치했습니다. \n");
+            printf("Nonce�� ��ġ�߽��ϴ�. \n");
         }
         else
             printf("auth nonce NOT verified\n");
@@ -1088,32 +1123,25 @@ int main(int argc, char* argv[])
         memcpy(handshake_buf2+1+n2,hand_buf2,sizeof(hand_buf2));
         print_buf(handshake_buf2,sizeof(handshake_buf2));
         write(my_sock, handshake_buf2,sizeof(handshake_buf2));
-        unsigned int seq_num = 0;
+
         while(1)
         {
             unsigned char command[10];
-            unsigned char msg[2000];
-            
-            memset(message,0x00,sizeof(msg));
-            str_len = read(my_sock,msg,sizeof(msg)-1); //3번
-            
+            unsigned char message[32];
+            memset(message,0,32);
+            print_buf(message,32);
             scanf("%s", command);
-
-
-            ////////////// seq num 작성할 차례 ///////////
+            ////////////// seq num ///////////
 
             if(strncmp((char *) command, (char *) "send", 4) == 0)
             {
-                unsigned char message[32];
-                memset(message,0,32);
+                int seq_num =0;
                 scanf("%s", message);
                 unsigned char msg_buf[80];
                 unsigned char msg_data[32];
-                int msg_data_len = sizeof(msg_data);    
+                int msg_data_len = sizeof(msg_data);
 
                 memset(msg_data,0,msg_data_len);
-                msg_data[7] += seq_num;
-                
                 memcpy(msg_data+8,message,strlen(message));
 
                 symmetricEncryptAuthenticate(sessionkeyinfo,msg_buf,msg_data,msg_data_len,0);
@@ -1122,7 +1150,7 @@ int main(int argc, char* argv[])
                 unsigned int num3 = sizeof(msg_buf);
                 int n3 = 1;
                 while(num3 > 127)
-                {   
+                {
                     extra_buf3[n3-1] = 128 | num3 & 127;
                     n3 += 1;
                     num3 >>=7;
@@ -1137,7 +1165,6 @@ int main(int argc, char* argv[])
                 write(my_sock, message_buf,sizeof(message_buf));
                 
                 printf("send the message: %s\n",message );
-                seq_num += 1;
             }
                 else if(strncmp((char *) command, (char *) "finComm", 7) == 0 )
             {
