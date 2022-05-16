@@ -1,10 +1,11 @@
-#include<stdio.h>
-#include<stdlib.h>
-#include<arpa/inet.h>
-#include<sys/socket.h>
-#include<unistd.h>
-#include<string.h>
-#include<stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <string.h>
+#include <stdint.h>
 #include <time.h>
 #include <math.h>
 #include <openssl/rand.h>
@@ -18,6 +19,7 @@
 #include <openssl/sha.h>
 #include <openssl/x509.h>
 #include <openssl/hmac.h>
+#include <pthread.h>
 
 
 #define type(x) _Generic((x),                                                     \
@@ -39,13 +41,14 @@ long long int: "long long int", unsigned long long int: "unsigned long long int"
 #define DIST_KEY_EXPIRATION_TIME_SIZE 6
 #define SESSION_KEY_ID_SIZE 8
 #define SESSION_KEY_EXPIRATION_TIME_SIZE 6
-#define SKEY_HANDSHAKE_1 30   //client �� auth���� ������
+#define SKEY_HANDSHAKE_1 30   
 #define SKEY_HANDSHAKE_2 31
 #define SKEY_HANDSHAKE_3 32
 #define SECURE_COMM_MSG 33
+#define BUF_LEN 1024
 int padding = RSA_PKCS1_PADDING;
 
-
+pthread_t thread[10];
 void nonce_generator(unsigned char * nonce_buf, int size_n) ;
 
 struct topic
@@ -92,7 +95,16 @@ unsigned char auth_id[AUTH_ID_LEN];
 char sender_req[] = "net1.client";
 char purpose_req[] = "{\"group\":\"Servers\"}";
 
-
+void *thread_main(void * my_fd)  /* read thread */
+{
+    char buf[BUF_LEN];
+    while(1)
+    {
+        memset(buf, 0, sizeof(buf));
+        read(*(int *)my_fd, buf, BUF_LEN);
+        printf("msg : %s\n",buf);
+    }
+}
 
 int read_variable_UInt(unsigned char * read_buf,int offset, int byteLength)
 {
@@ -322,72 +334,71 @@ void symmetricEncryptAuthenticate(struct sessionkey_info S[], unsigned char * p,
 //     close(my_sock); //4��
 // }
 //publice key
-char publickey[] = "-----BEGIN PUBLIC KEY-----\n"\
-                        "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxhChIBXNUdx7v/Js++Ki\n"\
-                        "vH6Jok1+Hwo6E07yZBS7UPR0Mp3Rl1u1a3geVcm93apUF187ul5BTuCmynUtKrsd\n"\
-                        "qOjnrco+TMNoHhM4+fHgO5PbAgnzKwXSnGzJgw/Z5OSUTyK6zypONKNsvMY01rm7\n"\
-                        "2KaYN7k1N9HbNMLxaye0/qS56iEXCOct3iR/xUR7ChYl2xaci7AFIA+9PyfirSEt\n"\
-                        "mxikQ4PL6PB053VHcts6N/zE4rMa0BTB89Q2BuHnvyWSyhKbSW+mgkeHjAnxjGrb\n"\
-                        "gzo72Pm55FSwgFXKeLpK85p0jaZEEjQ+Ui/qC6mWP7R67UxrjKieng38aLos4GUK\n"\
-                        "xwIDAQAB\n"\
-                        "-----END PUBLIC KEY-----\n";
-// Auth privatekey
-char privatekey[] = "-----BEGIN RSA PRIVATE KEY-----\n"\
-"MIIEowIBAAKCAQEAxhChIBXNUdx7v/Js++KivH6Jok1+Hwo6E07yZBS7UPR0Mp3R\n"\
-"l1u1a3geVcm93apUF187ul5BTuCmynUtKrsdqOjnrco+TMNoHhM4+fHgO5PbAgnz\n"\
-"KwXSnGzJgw/Z5OSUTyK6zypONKNsvMY01rm72KaYN7k1N9HbNMLxaye0/qS56iEX\n"\
-"COct3iR/xUR7ChYl2xaci7AFIA+9PyfirSEtmxikQ4PL6PB053VHcts6N/zE4rMa\n"\
-"0BTB89Q2BuHnvyWSyhKbSW+mgkeHjAnxjGrbgzo72Pm55FSwgFXKeLpK85p0jaZE\n"\
-"EjQ+Ui/qC6mWP7R67UxrjKieng38aLos4GUKxwIDAQABAoIBADLUg7VLQxUWI4Ag\n"\
-"RA3knOUJCGNpxctLgZoA8b3zgBsHkWaIEAjrFUUOX6KekqZ3lvskipyKofIPP17H\n"\
-"8Z58xODbXNHCDHkA0RCe2El05JoFmPgN+6T36pQQayrCf6X5b4JbpFuUPNvPcRGF\n"\
-"QHw20FmKb5glZN39cmc4/GIGn7GVurv7qC2JF5m3raLvMcXyJR+6xpKrV+VX5rv5\n"\
-"JOUx7BBx6GF2LxY9o71RbKUNy084wEQ2alRzGgQ7KnkM/208Wn+B0vCP0XDT6v3H\n"\
-"Xo+EZW1pgX3+IU9kvgW2HIPbZUEpdPuxKSkoZ33ok76VxfNy0OTy5y5qZLQtyS26\n"\
-"4UWuiIkCgYEA9tVz30pJns5agaQ1iogz5HJ36sGEuwjacCETpmTZjxYFyun1kjip\n"\
-"WuT9TDkaJ6I4kz+p2Xq1AB77gOy1WUcaN1l6mF1pR5TUNgJxjB7MM3n1+N/aAv82\n"\
-"Z06UoiZLnyz4Ef3JMNNgSeJsheeYPbcMfIlwfqIlenELAsGRz4Ez3y0CgYEAzWuN\n"\
-"LOOg58WZJLw1FmPWywmsbzEMXgEcTq/pgzD20qVP13y81quYCATqr7zrysXNdLsm\n"\
-"n42EbrCeN9TCeZUS7Q9jap2vy13SHe2XS43vMN/1TBFQzBMRwLePKy8bIxlhIYFy\n"\
-"fE9wx+kmEsxL2MQwSp6s95DaP6QL8zjOLlStakMCgYBEu1FFpwDzCJDpMpl6Fs0k\n"\
-"Wr+LjhFwp1l0CbHYDpMKJd69DwLDkaWO2t6xf+EJkkFgt0SLe4C1JOtxjfg9gPAK\n"\
-"446gqLotJYMl+u41T0obN2XHxEWHuhsjDx2SPUmnbDUzhVClmOZiDHudmcypurPu\n"\
-"ZbL+gBYhjyK6xL3eYyLXjQKBgQDK8NhWYsQSdkrn2fBwoE4R5QqwBzr6nApFStFd\n"\
-"xL/0N1F7yEYfpwLZ2VGqMPCaMXTbQBHWS09ss5x79/vxde9uuGc1a3fDaHsvCg0Q\n"\
-"nbaTCI8kiW7TTnuZcz9EIJOkx2wIWASs/yaiuZndtGuySZCUB9NF+ZtEiGMt9Q7t\n"\
-"AscYVQKBgCRIkf2VdpwywLMm63Xde++VtuAMNsDY3Z0kO1mnbd5EBZdCdLkaU4Rc\n"\
-"maOXLO+GxhFoncrD7dQwmqJkRo8o9iAnKKhgDycPs5OTxVjRTFc2IJw6QWqBKO9H\n"\
-"UK+coIjyTzKlLYcXc49Uxj91IVmMP3E95JhlHGu0zPriTS/OBzfE\n"\
-"-----END RSA PRIVATE KEY-----\n";
+// char publickey[] = "-----BEGIN PUBLIC KEY-----\n"\
+//                         "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxhChIBXNUdx7v/Js++Ki\n"\
+//                         "vH6Jok1+Hwo6E07yZBS7UPR0Mp3Rl1u1a3geVcm93apUF187ul5BTuCmynUtKrsd\n"\
+//                         "qOjnrco+TMNoHhM4+fHgO5PbAgnzKwXSnGzJgw/Z5OSUTyK6zypONKNsvMY01rm7\n"\
+//                         "2KaYN7k1N9HbNMLxaye0/qS56iEXCOct3iR/xUR7ChYl2xaci7AFIA+9PyfirSEt\n"\
+//                         "mxikQ4PL6PB053VHcts6N/zE4rMa0BTB89Q2BuHnvyWSyhKbSW+mgkeHjAnxjGrb\n"\
+//                         "gzo72Pm55FSwgFXKeLpK85p0jaZEEjQ+Ui/qC6mWP7R67UxrjKieng38aLos4GUK\n"\
+//                         "xwIDAQAB\n"\
+//                         "-----END PUBLIC KEY-----\n";
+// // Auth privatekey
+// char privatekey[] = "-----BEGIN RSA PRIVATE KEY-----\n"\
+// "MIIEowIBAAKCAQEAxhChIBXNUdx7v/Js++KivH6Jok1+Hwo6E07yZBS7UPR0Mp3R\n"\
+// "l1u1a3geVcm93apUF187ul5BTuCmynUtKrsdqOjnrco+TMNoHhM4+fHgO5PbAgnz\n"\
+// "KwXSnGzJgw/Z5OSUTyK6zypONKNsvMY01rm72KaYN7k1N9HbNMLxaye0/qS56iEX\n"\
+// "COct3iR/xUR7ChYl2xaci7AFIA+9PyfirSEtmxikQ4PL6PB053VHcts6N/zE4rMa\n"\
+// "0BTB89Q2BuHnvyWSyhKbSW+mgkeHjAnxjGrbgzo72Pm55FSwgFXKeLpK85p0jaZE\n"\
+// "EjQ+Ui/qC6mWP7R67UxrjKieng38aLos4GUKxwIDAQABAoIBADLUg7VLQxUWI4Ag\n"\
+// "RA3knOUJCGNpxctLgZoA8b3zgBsHkWaIEAjrFUUOX6KekqZ3lvskipyKofIPP17H\n"\
+// "8Z58xODbXNHCDHkA0RCe2El05JoFmPgN+6T36pQQayrCf6X5b4JbpFuUPNvPcRGF\n"\
+// "QHw20FmKb5glZN39cmc4/GIGn7GVurv7qC2JF5m3raLvMcXyJR+6xpKrV+VX5rv5\n"\
+// "JOUx7BBx6GF2LxY9o71RbKUNy084wEQ2alRzGgQ7KnkM/208Wn+B0vCP0XDT6v3H\n"\
+// "Xo+EZW1pgX3+IU9kvgW2HIPbZUEpdPuxKSkoZ33ok76VxfNy0OTy5y5qZLQtyS26\n"\
+// "4UWuiIkCgYEA9tVz30pJns5agaQ1iogz5HJ36sGEuwjacCETpmTZjxYFyun1kjip\n"\
+// "WuT9TDkaJ6I4kz+p2Xq1AB77gOy1WUcaN1l6mF1pR5TUNgJxjB7MM3n1+N/aAv82\n"\
+// "Z06UoiZLnyz4Ef3JMNNgSeJsheeYPbcMfIlwfqIlenELAsGRz4Ez3y0CgYEAzWuN\n"\
+// "LOOg58WZJLw1FmPWywmsbzEMXgEcTq/pgzD20qVP13y81quYCATqr7zrysXNdLsm\n"\
+// "n42EbrCeN9TCeZUS7Q9jap2vy13SHe2XS43vMN/1TBFQzBMRwLePKy8bIxlhIYFy\n"\
+// "fE9wx+kmEsxL2MQwSp6s95DaP6QL8zjOLlStakMCgYBEu1FFpwDzCJDpMpl6Fs0k\n"\
+// "Wr+LjhFwp1l0CbHYDpMKJd69DwLDkaWO2t6xf+EJkkFgt0SLe4C1JOtxjfg9gPAK\n"\
+// "446gqLotJYMl+u41T0obN2XHxEWHuhsjDx2SPUmnbDUzhVClmOZiDHudmcypurPu\n"\
+// "ZbL+gBYhjyK6xL3eYyLXjQKBgQDK8NhWYsQSdkrn2fBwoE4R5QqwBzr6nApFStFd\n"\
+// "xL/0N1F7yEYfpwLZ2VGqMPCaMXTbQBHWS09ss5x79/vxde9uuGc1a3fDaHsvCg0Q\n"\
+// "nbaTCI8kiW7TTnuZcz9EIJOkx2wIWASs/yaiuZndtGuySZCUB9NF+ZtEiGMt9Q7t\n"\
+// "AscYVQKBgCRIkf2VdpwywLMm63Xde++VtuAMNsDY3Z0kO1mnbd5EBZdCdLkaU4Rc\n"\
+// "maOXLO+GxhFoncrD7dQwmqJkRo8o9iAnKKhgDycPs5OTxVjRTFc2IJw6QWqBKO9H\n"\
+// "UK+coIjyTzKlLYcXc49Uxj91IVmMP3E95JhlHGu0zPriTS/OBzfE\n"\
+// "-----END RSA PRIVATE KEY-----\n";
 
-
-char signkey[] = "-----BEGIN RSA PRIVATE KEY-----\n"\
-"MIIEogIBAAKCAQEAwOIkSI/ljx7btBFPqhl4MmRycoUhfprNumtYhEgwVq/xdjCm\n"\
-"O/mL6DNxuCwT29/FkeGm0iFzpvOSzWC4ULw2UYz5Ydp1Bh1b/6fByAgUTbHD19rg\n"\
-"EkVbicnERtrBlb63rXme9kaOF0xhWxRRmIFhXBmivzVGcIwrD55Uv3Ou7tT7fmMw\n"\
-"rY1Mj5bWU4ya4B4N9ysCL1lanMVy1drsuijoRZMjCOlQFNSj7BmpqHCnAWoXKKrT\n"\
-"0TZ7pFYeu/ryr4JgLvXnr37RHVR0gagItuMaaxt2feAQ/INX7Sc3MpmMa6Wwmv0L\n"\
-"8dJAHlL0fqsxaDMGtip20gcWxlVsKmkKjYdP/QIDAQABAoIBABl4Qy5JwhhqDLz0\n"\
-"ZD6j6llNJke1CL09F9l7/05IcgmgZhQjTHAy/aSF1ohpWZ35KI+g6nRo8mqjU0lH\n"\
-"ck9G6y1NnkirnjRWgCV8M3yEhJnV1XSVdG01N2c0e3SXwmRRsNN5ceI3Yt/0uA5c\n"\
-"2oF25DJTOEhjco++EpmXYL1/OyRSRFYiRA9UmTPjGyOU2X4uG3jlyXa++JQQ6MYP\n"\
-"iCHmH1Mdighnb008RttF9m55X+RMAw9IPqCigzaKCOEmOkNDA97PlVdslIolN2uf\n"\
-"fsWkMQzTktMpuDMlieyVyCd5zu38isdoq2Si1+ICQ20TNDQjRUEzScSCv6Jr8grs\n"\
-"tWYpEoECgYEA+9EKvvcDvZyBqL6elsojPp6/r8iIu1+hnbParj5aGbwNVReZuzyh\n"\
-"ChOUZfxlikygV7AQfdf5xM0LjvvFQZkBlNOMaZ/HCBmbWTHirzIH9I7qbU4N/puE\n"\
-"zOj3P40fn1tZqySHAKDMv4c29JTYyvm/eih8hjXm3MavgyJSrKZ1Y60CgYEAxBZ2\n"\
-"BSj/wEcGxV/rcK3sU0ABtFxFXxM1UfBalLOXZMaNwe8jN7OXhnQYlwU1WA6KsuPi\n"\
-"/bwllflkQXFP6yRtiGOm5kcJukLqss3hUoEKhG6pYnFMYaHYWdkQ4nzkK+a4gR2d\n"\
-"L8gcQ83j7fKAEOaRkBbdAVvrF/HvQley9nWUp5ECgYAmi+lJMiawb7SpUASWsHqU\n"\
-"q1hMYDYN+KWUrmNbKNBCADdKP0KZFr7P/A9LTUd91Bz3T0w290iUh46tZHzdfb5w\n"\
-"ObHUuVCOPN062hgJGW9+UCIyeTBLOSMq+r5eTAv7KNChEgZYYkT1TI1tAxvsdi6J\n"\
-"VIk7QiUExqU3PZnKM/DkQQKBgBhaHcAYTmLHr1yVw/yTbPUNzuhiSS88iHOroOQ0\n"\
-"xYl7ayF5nGsPf7Lv+hnPSMetzqXWzVrrodNVTJEgDGfMd1nn3lNc4SVjqBgan3AK\n"\
-"nI7D239hSLYbTm4iGgm2rvOQzLskPWAwvungyPzFEAiJSeyWGk5P5wtrPWaE07Ht\n"\
-"+k8xAoGABHF+kzJbKAZ4RLUYkBLB1vd7Dlb/VFJEjgbJ0ntWOxcUY2DIqkmKITOU\n"\
-"1TjBqhaMMP1IcEP9Uo27XJH2wjfg063n48/BUWCic7P92QwqH2sWdZEtM8bMhy9/\n"\
-"eroDJM9GZbJe8Ezn2wkFCiiyRNfo5Tm9S3BXwi+qMHT8PUTygFY=\n"\
-"-----END RSA PRIVATE KEY-----\n";
+// char signkey[] = "-----BEGIN RSA PRIVATE KEY-----\n"\
+// "MIIEogIBAAKCAQEAwOIkSI/ljx7btBFPqhl4MmRycoUhfprNumtYhEgwVq/xdjCm\n"\
+// "O/mL6DNxuCwT29/FkeGm0iFzpvOSzWC4ULw2UYz5Ydp1Bh1b/6fByAgUTbHD19rg\n"\
+// "EkVbicnERtrBlb63rXme9kaOF0xhWxRRmIFhXBmivzVGcIwrD55Uv3Ou7tT7fmMw\n"\
+// "rY1Mj5bWU4ya4B4N9ysCL1lanMVy1drsuijoRZMjCOlQFNSj7BmpqHCnAWoXKKrT\n"\
+// "0TZ7pFYeu/ryr4JgLvXnr37RHVR0gagItuMaaxt2feAQ/INX7Sc3MpmMa6Wwmv0L\n"\
+// "8dJAHlL0fqsxaDMGtip20gcWxlVsKmkKjYdP/QIDAQABAoIBABl4Qy5JwhhqDLz0\n"\
+// "ZD6j6llNJke1CL09F9l7/05IcgmgZhQjTHAy/aSF1ohpWZ35KI+g6nRo8mqjU0lH\n"\
+// "ck9G6y1NnkirnjRWgCV8M3yEhJnV1XSVdG01N2c0e3SXwmRRsNN5ceI3Yt/0uA5c\n"\
+// "2oF25DJTOEhjco++EpmXYL1/OyRSRFYiRA9UmTPjGyOU2X4uG3jlyXa++JQQ6MYP\n"\
+// "iCHmH1Mdighnb008RttF9m55X+RMAw9IPqCigzaKCOEmOkNDA97PlVdslIolN2uf\n"\
+// "fsWkMQzTktMpuDMlieyVyCd5zu38isdoq2Si1+ICQ20TNDQjRUEzScSCv6Jr8grs\n"\
+// "tWYpEoECgYEA+9EKvvcDvZyBqL6elsojPp6/r8iIu1+hnbParj5aGbwNVReZuzyh\n"\
+// "ChOUZfxlikygV7AQfdf5xM0LjvvFQZkBlNOMaZ/HCBmbWTHirzIH9I7qbU4N/puE\n"\
+// "zOj3P40fn1tZqySHAKDMv4c29JTYyvm/eih8hjXm3MavgyJSrKZ1Y60CgYEAxBZ2\n"\
+// "BSj/wEcGxV/rcK3sU0ABtFxFXxM1UfBalLOXZMaNwe8jN7OXhnQYlwU1WA6KsuPi\n"\
+// "/bwllflkQXFP6yRtiGOm5kcJukLqss3hUoEKhG6pYnFMYaHYWdkQ4nzkK+a4gR2d\n"\
+// "L8gcQ83j7fKAEOaRkBbdAVvrF/HvQley9nWUp5ECgYAmi+lJMiawb7SpUASWsHqU\n"\
+// "q1hMYDYN+KWUrmNbKNBCADdKP0KZFr7P/A9LTUd91Bz3T0w290iUh46tZHzdfb5w\n"\
+// "ObHUuVCOPN062hgJGW9+UCIyeTBLOSMq+r5eTAv7KNChEgZYYkT1TI1tAxvsdi6J\n"\
+// "VIk7QiUExqU3PZnKM/DkQQKBgBhaHcAYTmLHr1yVw/yTbPUNzuhiSS88iHOroOQ0\n"\
+// "xYl7ayF5nGsPf7Lv+hnPSMetzqXWzVrrodNVTJEgDGfMd1nn3lNc4SVjqBgan3AK\n"\
+// "nI7D239hSLYbTm4iGgm2rvOQzLskPWAwvungyPzFEAiJSeyWGk5P5wtrPWaE07Ht\n"\
+// "+k8xAoGABHF+kzJbKAZ4RLUYkBLB1vd7Dlb/VFJEjgbJ0ntWOxcUY2DIqkmKITOU\n"\
+// "1TjBqhaMMP1IcEP9Uo27XJH2wjfg063n48/BUWCic7P92QwqH2sWdZEtM8bMhy9/\n"\
+// "eroDJM9GZbJe8Ezn2wkFCiiyRNfo5Tm9S3BXwi+qMHT8PUTygFY=\n"\
+// "-----END RSA PRIVATE KEY-----\n";
 
 
 RSA * createRSA(unsigned char * key,int public)
@@ -660,9 +671,14 @@ int main(int argc, char* argv[])
             if(verify_result ==1)
                 printf("auth signature verified \n\n");
 
+
+            FILE *keyfile = fopen("../SST-/sst/iotauth/entity/credentials/keys/net1/Net1.ClientKey.pem", "rb"); 
+            RSA *rsa = PEM_read_RSAPrivateKey(keyfile, NULL, NULL, NULL);
+
             unsigned char dec_buf[100];
-            RSA * rsa = createRSA(signkey,0);
-            int dec_length = private_decrypt(ret_data,sizeof(ret_data),dec_buf,signkey);
+            
+            int  dec_length = RSA_private_decrypt(sizeof(ret_data),ret_data,dec_buf,rsa,padding);
+            // int dec_length = RSA_private_decrypt(ret_data,sizeof(ret_data),dec_buf,signkey);
             printf("decrypted length: %d\n", dec_length);
             printf(" -- decrypted value -- \n");
             print_buf(dec_buf, dec_length);
@@ -790,7 +806,7 @@ int main(int argc, char* argv[])
 
             for(int i = 0; i<resp_session_length;i++)
             {
-                printf("%d ��°! \n", i+1);
+                printf("%d 번째! \n", i+1);
                 printf("key id size: %d\n", offset);
                 slice(session_key_info.key_id,parse_sessionkey,cur_index_par,cur_index_par+offset);
                 long int key_id = read_variable_UInt(parse_sessionkey,cur_index_par , offset);
@@ -1072,7 +1088,7 @@ int main(int argc, char* argv[])
         if(AES_set_decrypt_key(sessionkeyinfo[0].cipher_key, sizeof(sessionkeyinfo[0].cipher_key)*8, &enc_key_128) < 0){
             printf("error");
         }; 
-        AES_cbc_encrypt( enc_symmetric_cipher, dec,sizeof(enc_symmetric_cipher), &enc_key_128, iv, 0);
+        AES_cbc_encrypt(enc_symmetric_cipher, dec,sizeof(enc_symmetric_cipher), &enc_key_128, iv, 0);
         printf("decrypted value: \n");
         print_buf(dec,32);
 
@@ -1090,7 +1106,6 @@ int main(int argc, char* argv[])
         }
         else
             printf("auth nonce NOT verified\n");
-
         printf("-- Server nonce --\n");
         unsigned char hand_buf2_data[1+ NONCE_SIZE*2];
         memset(hand_buf2_data,0,1+ NONCE_SIZE*2);
@@ -1134,6 +1149,9 @@ int main(int argc, char* argv[])
             // str_len = read(my_sock,msg,sizeof(msg)-1); //3번
             
             scanf("%s", command);
+
+            
+            pthread_create(thread, NULL, &thread_main, &my_sock);
 
 
             ////////////// seq num 작성할 차례 ///////////
