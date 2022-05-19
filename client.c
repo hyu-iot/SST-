@@ -81,8 +81,8 @@ typedef struct
 
 typedef struct
 {
-  unsigned char receive_message[100];
-  unsigned char send_message[100];
+  unsigned char receive_message[200];
+  unsigned char send_message[200];
   unsigned int seq_num;
 }save_message;
 
@@ -203,9 +203,11 @@ void *receive_message(void *multiple_arg)  /* read thread */
     // mackey , cipher key decryption
     while(1)
     {
+        printf("seq num: %d\n",n);
         // memset(my_multiple_arg->receive_message, 0, sizeof(my_multiple_arg->receive_message));
         memset(buf_msg, 0, sizeof(buf_msg));
         int str_len = read(my_sock, buf_msg, BUF_LEN);
+        printf("msg length: %d \n", str_len);
         printf("msg : ");
         print_buf(buf_msg,str_len);
         unsigned char dec[100];
@@ -219,6 +221,7 @@ void *receive_message(void *multiple_arg)  /* read thread */
         slice(save_msg[n].receive_message,dec,8,sizeof(save_msg[n].receive_message));
         print_buf(save_msg[n].receive_message,10);
         printf("message : %s\n", save_msg[n].receive_message);
+        printf("yunsang\n");
         n +=1;
     }
 }
@@ -349,7 +352,7 @@ void symmetricEncryptAuthenticate(struct sessionkey_info S[], unsigned char * p,
         {
             printf("error!!!");
         }; 
-        AES_cbc_encrypt( z, enc,b, &enc_key_128, iv, 1); // iv�� �ٲ��?!
+        AES_cbc_encrypt( z, enc,b, &enc_key_128, iv, 1); // why IV is changed?
         printf("enc data: \n");
         print_buf(enc, sizeof(enc));
         // iv 16 + enc 32
@@ -369,17 +372,17 @@ void symmetricEncryptAuthenticate(struct sessionkey_info S[], unsigned char * p,
         print_buf(hmac,sizeof(hmac));
         // enc + tag
         if(a ==1){ // handshake1 need a key id 
-            memcpy(p,S[0].key_id,sizeof(S[0].key_id)); // 8
+            memcpy(p,S[0].key_id,sizeof(S[0].key_id)); //8
             memcpy(p+sizeof(S[0].key_id),enc_mac,sizeof(enc_mac)); //48
             memcpy(p+sizeof(S[0].key_id)+sizeof(enc_mac), hmac, sizeof(hmac)); //32
-            printf("��ü ���� : \n");
+            printf(" : \n");
 
             print_buf(p,88);
         }
         else{ // handshake3 don't need key id
             memcpy(p,enc_mac,sizeof(enc_mac)); //48
             memcpy(p+sizeof(enc_mac), hmac, sizeof(hmac)); //32
-            printf("��ü ���� : \n");
+            printf(" : \n");
 
             print_buf(p,80);          
         }
@@ -395,8 +398,10 @@ void symmetricdecryptAuthenticate(struct sessionkey_info S[], unsigned char *in_
         unsigned char enc[payload_buf_num-mac_size];
         unsigned char  result[32];
         unsigned int result_len = 32;
-        slice(enc,in_buf,buf_num+1,buf_num+1+mac_size);
-        slice(received_tag,in_buf,buf_num+1+mac_size, payload_buf_num+buf_num+1);
+        printf("payload buf num : %d \n",payload_buf_num );
+
+        slice(enc,in_buf,buf_num+1,buf_num+1+payload_buf_num-mac_size);
+        slice(received_tag,in_buf,buf_num+1+payload_buf_num-mac_size, payload_buf_num+buf_num+1);
         print_buf(enc,sizeof(enc));
         print_buf(received_tag,sizeof(received_tag));
         HMAC(EVP_sha256(),S[0].mac_key , 32, enc, sizeof(enc), result, &result_len);
@@ -903,7 +908,7 @@ int main(int argc, char* argv[])
             print_buf(resp_reply_nonce,NONCE_SIZE);
             if(strncmp((char *)resp_reply_nonce, (char *) SessionKeyReq.Entity_nonce, NONCE_SIZE) == 0 )
             {
-                printf("Nonce�� ��ġ�߽��ϴ�. \n");
+                printf("Nonce is consistent. \n");
             }
             else
                 printf("auth nonce NOT verified\n");
