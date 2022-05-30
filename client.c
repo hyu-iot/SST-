@@ -23,7 +23,7 @@
 #include <openssl/x509.h>
 #include <openssl/hmac.h>
 #include <pthread.h>
-
+#include "common.h"
 
 #define type(x) _Generic((x),                                                     \
         _Bool: "_Bool",                  unsigned char: "unsigned char",          \
@@ -83,8 +83,15 @@ typedef struct
 {
   unsigned char receive_message[200];
   unsigned char send_message[200];
-  unsigned int seq_num;
+  unsigned int receive_seq_num;
+  unsigned int send_seq_num;
 }save_message;
+
+typedef struct
+{
+long int st_time;
+
+}start_time;
 
 
 struct sessionkey_info
@@ -107,22 +114,23 @@ save_message save_msg[100];
 struct sessionkey_info sessionkeyinfo[10];
 struct topic Topic;  // Topic declaration;
 struct sessionKeyReq SessionKeyReq; // SessionkeyReq declaration;
+start_time validity_time;
 unsigned char message[15];
 unsigned char auth_id[AUTH_ID_LEN];
 char sender_req[] = "net1.client";
 char purpose_req[] = "{\"group\":\"Servers\"}";
 
-void nonce_generator(unsigned char * nonce_buf, int size_n) ;
+// void nonce_generator(unsigned char * nonce_buf, int size_n) ;
 void symmetricdecryptAuthenticate(struct sessionkey_info S[], unsigned char *in_buf, int p, unsigned char *out_buf, int q);
 
 
-void slice(unsigned char * des_buf, unsigned char * buf, int a, int b )
-{
-    for(int i=0;i<b-a;i++)
-    {
-        des_buf[i] = buf[a+i];
-    }
-}
+// void slice(unsigned char * des_buf, unsigned char * buf, int a, int b )
+// {
+//     for(int i=0;i<b-a;i++)
+//     {
+//         des_buf[i] = buf[a+i];
+//     }
+// }
 
 int read_variable_UInt(unsigned char * read_buf,int offset, int byteLength)
 {
@@ -134,32 +142,32 @@ int read_variable_UInt(unsigned char * read_buf,int offset, int byteLength)
     }
     return num; 
 }
-int payload_buf_length(int b)
-{   
-    int n = 1;
-    while(b > 127)
-    {
-        n += 1;
-        b >>=7;
-    }
-    return n;
-}
+// int payload_buf_length(int b)
+// {   
+//     int n = 1;
+//     while(b > 127)
+//     {
+//         n += 1;
+//         b >>=7;
+//     }
+//     return n;
+// }
 
-int payload_length(unsigned char * message, int b)
-{
-    int num = 0;
-    for (int i =0; i<b&& i<5; i++)
-    {
-        num |= (message[1+i]& 127) <<(7 * i);
-        if((message[1+i]&128) == 0 )
-        {
-            i+= 1;
-            printf("payload_length = %d, payload_buf = %d \n", num,i);
-            break;
-        }
-    }
-    return num;
-}
+// int payload_length(unsigned char * message, int b)
+// {
+//     int num = 0;
+//     for (int i =0; i<b&& i<5; i++)
+//     {
+//         num |= (message[1+i]& 127) <<(7 * i);
+//         if((message[1+i]&128) == 0 )
+//         {
+//             i+= 1;
+//             printf("payload_length = %d, payload_buf = %d \n", num,i);
+//             break;
+//         }
+//     }
+//     return num;
+// }
 
 void make_time(unsigned char * time_buf, int index, int byte_length)
 {
@@ -178,12 +186,14 @@ void make_time(unsigned char * time_buf, int index, int byte_length)
     printf("%04d-%02d-%02d %02d:%02d:%02d\n",it->tm_year +1900 , it->tm_mon + 1, it->tm_mday , it->tm_hour, it->tm_min, it->tm_sec
     );
 }
-void print_buf(unsigned char * print_buffer, int n)
-{
-    for(int i=0 ; i<n; i++)
-        printf("%x  ", print_buffer[i]);
-    printf("\n");
-}
+
+// void print_buf(unsigned char * print_buffer, int n)
+// {
+//     for(int i=0 ; i<n; i++)
+//         printf("%x  ", print_buffer[i]);
+//     printf("\n");
+// }
+
 int print_seq_num(unsigned char *buf)
 {
     int seq=0;
@@ -203,10 +213,33 @@ void *receive_message(void *multiple_arg)  /* read thread */
     // mackey , cipher key decryption
     while(1)
     {
-        printf("seq num: %d\n",n);
+        if(n == 0 && validity_time.st_time == 0)
+        {       
+            validity_time.st_time = time(NULL);
+        }
+
         // memset(my_multiple_arg->receive_message, 0, sizeof(my_multiple_arg->receive_message));
         memset(buf_msg, 0, sizeof(buf_msg));
         int str_len = read(my_sock, buf_msg, BUF_LEN);
+
+        printf("seq num: %d\n",n);
+        unsigned long int num_valid =1LU;
+        for(int i =0; i<SESSION_KEY_EXPIRATION_TIME_SIZE;i++)
+        {
+            unsigned long int num =1LU << 8*(SESSION_KEY_EXPIRATION_TIME_SIZE-1-i); 
+            num_valid |= num*sessionkeyinfo[0].abs_validity[i];
+        }
+        printf("abs_valid : %ld\n", num_valid);
+        num_valid = num_valid/1000;
+        long int relvalidity = read_variable_UInt(sessionkeyinfo[0].rel_validity, 0, 6)/1000;
+        
+        if(time(NULL) > num_valid || time(NULL) - validity_time.st_time >relvalidity)
+        {
+            printf("session key is expired");
+            break;
+        }
+        else
+        {
         printf("msg length: %d \n", str_len);
         printf("msg : ");
         print_buf(buf_msg,str_len);
@@ -216,13 +249,17 @@ void *receive_message(void *multiple_arg)  /* read thread */
         memset(save_msg[n].receive_message,0,sizeof(save_msg[n].receive_message));
         int seq_num = print_seq_num(dec);
         
-        save_msg[n].seq_num = seq_num ; 
+        save_msg[n].receive_seq_num = seq_num ; 
         
         slice(save_msg[n].receive_message,dec,8,sizeof(save_msg[n].receive_message));
         print_buf(save_msg[n].receive_message,10);
         printf("message : %s\n", save_msg[n].receive_message);
-        printf("yunsang\n");
+        // if(n == 0 && ) // time number? if abs time is empty, start!
+        // {
+
+        // }
         n +=1;
+        }
     }
 }
 void *thread_main(void * my_fd)  /* read thread */
@@ -277,19 +314,15 @@ void AuthNonce()
         SessionKeyReq.Auth_nonce[j] = message[AUTH_ID_LEN+2+j];
     }
 }
-void nonce_generator(unsigned char * nonce_buf, int size_n)  // nonce generator;
-{
-    unsigned char buffer[size_n];
-    int length = size_n;
-    RAND_bytes(buffer,length);
-    printf("buf size %d \n",size_n);
-    for(int i=0;i<length; i++)
-        {
-        printf("%x ", buffer[i]);
-        nonce_buf[i] = buffer[i];
-        }
-    printf("\n");
-}    
+// void nonce_generator(unsigned char * nonce_buf, int size_n)  // nonce generator;
+// {
+//     int x = RAND_bytes(nonce_buf,size_n);
+//     if(x == -1)
+//     {
+//         printf("Failed to create Random Nonce");
+//         exit(1);
+//     }
+// }    
 
 unsigned char buf [NONCE_SIZE*2 + NUMKEY + 1 + 12 + 1 + 20]; //buf[20+]
 // unsigned char buf [8196]; //buf[20+]
@@ -313,7 +346,7 @@ void serializeSessionkeyReq()
         memcpy(buf+NONCE_SIZE*2+NUMKEY+1+strlen(SessionKeyReq.Sender),SessionKeyReq.Purpose_len,1); 
         memcpy(buf+NONCE_SIZE*2+NUMKEY+1+strlen(SessionKeyReq.Sender)+1,SessionKeyReq.Purpose,strlen(SessionKeyReq.Purpose)); 
         
-    printf("-- Serialize�� ���� -- \n");
+    printf("-- Serialize -- \n");
     print_buf(buf,sizeof(buf));
     }
 }
@@ -456,7 +489,7 @@ void symmetricdecryptAuthenticate(struct sessionkey_info S[], unsigned char *in_
 //     {
 //         printf("%x ",message[i]);
 //     }
-//     close(my_sock); //4��
+//     close(my_sock); //4
 // }
 
 RSA * createRSA(unsigned char * key,int public)
@@ -469,7 +502,6 @@ RSA * createRSA(unsigned char * key,int public)
         printf( "Failed to create key BIO");
         return 0;
     }
-    
     if(public) // 
     {
         rsa = PEM_read_bio_RSA_PUBKEY(keybio, &rsa, NULL, NULL);
@@ -528,7 +560,6 @@ void printLastError(char *msg)
 void make_degest_msg(unsigned char *dig_enc, unsigned char *encrypted ,int encrypted_length)
 {
     SHA256_CTX ctx;
-    
     SHA256_Init(&ctx);
     SHA256_Update(&ctx, encrypted, encrypted_length); 
     SHA256_Final(dig_enc, &ctx);     
@@ -537,7 +568,6 @@ void make_degest_msg(unsigned char *dig_enc, unsigned char *encrypted ,int encry
 
 int main(int argc, char* argv[])
 {
-        // TcpCommunication(argc, argv);
 
         int my_sock;
         struct sockaddr_in serv_addr;
@@ -547,15 +577,12 @@ int main(int argc, char* argv[])
             printf("%s <IP> <PORT>\n", argv[0]);
             exit(1);
         }
-        my_sock = socket(PF_INET,SOCK_STREAM,0); //1��
+        my_sock = socket(PF_INET,SOCK_STREAM,0); 
         if(my_sock == -1)
             printf("socket error \n");
         memset(&serv_addr,0,sizeof(serv_addr));
         serv_addr.sin_family = AF_INET;
         serv_addr.sin_addr.s_addr=inet_addr(argv[1]);
-        printf("argv Ÿ����: %s \n", argv[2]);
-        
-        
         serv_addr.sin_port=htons(atoi(argv[2]));
 
         if(connect(my_sock,(struct sockaddr*)&serv_addr,sizeof(serv_addr))==-1) //2��
@@ -578,7 +605,7 @@ int main(int argc, char* argv[])
             nonce_generator(SessionKeyReq.Entity_nonce, NONCE_SIZE);
             purpose();
 
-            //Auth_Hello �޾��� ��!
+            //Auth_Hello 
             serializeSessionkeyReq();
             
             unsigned char encrypted[2048] = {};
@@ -600,11 +627,8 @@ int main(int argc, char* argv[])
             // printf(" -- decrypted value -- \n");
             // print_buf(decrypted, decrypted_length); 
 
-            //strlen �� �ϰԵǸ� sizeof ���� �Ѿ �ÿ� \n�� ���ٸ� ��� �ҷ���!!
-
             //////////////////sign part////////////////////////
             // make digest message
-            // �۰� �������� RSA sign�� ������
 
             make_degest_msg(dig_enc, encrypted, encrypted_length);
 
@@ -656,10 +680,10 @@ int main(int argc, char* argv[])
         unsigned char message[2000];
         
         memset(message,0x00,sizeof(message));
-        str_len = read(my_sock,message,sizeof(message)-1); //3��
+        str_len = read(my_sock,message,sizeof(message)-1); //3
         if(str_len==-1)
             printf("read error\n");
-        //////// msg type 21�� ��!
+        //////// msg type 21!
         if(message[0] == 21)
         {   
             printf("\nreceived session key response with distribution key attached! \n");
@@ -738,11 +762,11 @@ int main(int argc, char* argv[])
             printf("decrypted length: %d\n", dec_length);
             printf(" -- decrypted value -- \n");
             print_buf(dec_buf, dec_length);
-            // parseDistributionKey ������!!
+            // parseDistributionKey !!
             // absValidity, cipher_key_value, mac_key_value for Received Distribution key!
             int cipher_key_size,mac_key_size, cur_index;
             unsigned char absValidity[DIST_KEY_EXPIRATION_TIME_SIZE];
-            cur_index = DIST_KEY_EXPIRATION_TIME_SIZE; // 6��!!
+            cur_index = DIST_KEY_EXPIRATION_TIME_SIZE; // 6!!
 
             memcpy(absValidity, dec_buf,cur_index);
             
@@ -773,7 +797,7 @@ int main(int argc, char* argv[])
 
             // Hmac authentication method.
             
-            //mac_key_value �̿�
+            //mac_key_value
             unsigned char  result[32];
             unsigned int result_len = 32;
             unsigned char hmac[32];
@@ -802,7 +826,7 @@ int main(int argc, char* argv[])
             slice(enc_symmetric_cipher,symmetric_data,iv_size,sizeof(symmetric_data));
 
             if(AES_set_decrypt_key(cipher_key_value, sizeof(cipher_key_value)*8, &enc_key_128) < 0){
-            // print Error  
+            printf("AES Decrypt Error!");  
             }; 
             AES_cbc_encrypt( enc_symmetric_cipher, dec,sizeof(enc_symmetric_cipher), &enc_key_128, iv, 0);
             
@@ -1057,6 +1081,16 @@ int main(int argc, char* argv[])
         write(my_sock, handshake_buf2,sizeof(handshake_buf2));
 
         unsigned int seq_num = 0;
+        validity_time.st_time = 0;
+
+        message_arg *multiple_arg;
+        multiple_arg = (message_arg *)malloc(sizeof(message_arg));
+
+        multiple_arg->sock = my_sock;
+        memcpy(multiple_arg->cipher_key,sessionkeyinfo[0].cipher_key,16);
+        memcpy(multiple_arg->mac_key,sessionkeyinfo[0].mac_key,32);
+        
+        pthread_create(thread, NULL, &receive_message, (void *)multiple_arg);
         while(1)
         {
             unsigned char command[10];
@@ -1064,30 +1098,47 @@ int main(int argc, char* argv[])
             
             // memset(message,0x00,sizeof(msg));
             // str_len = read(my_sock,msg,sizeof(msg)-1); //3번
-            message_arg *multiple_arg;
-            multiple_arg = (message_arg *)malloc(sizeof(message_arg));
-
-            multiple_arg->sock = my_sock;
-            memcpy(multiple_arg->cipher_key,sessionkeyinfo[0].cipher_key,16);
-            memcpy(multiple_arg->mac_key,sessionkeyinfo[0].mac_key,32);
-            
-            pthread_create(thread, NULL, &receive_message, (void *)multiple_arg);
-            free(multiple_arg);
+            // free(multiple_arg);
             // pthread_create(thread, NULL, &thread_main, &my_sock);
             scanf("%s", command);
 
 
             ////////////// seq num 작성할 차례 ///////////
 
+
             if(strncmp((char *) command, (char *) "send", 4) == 0)
             {
-                unsigned char message[32];
+                if(seq_num == 0 && validity_time.st_time == 0)
+                {       
+                    validity_time.st_time = time(NULL);
+                }
+
+                unsigned long int num_valid =1LU;
+                for(int i =0; i<SESSION_KEY_EXPIRATION_TIME_SIZE;i++)
+                {
+                    unsigned long int num =1LU << 8*(SESSION_KEY_EXPIRATION_TIME_SIZE-1-i); 
+                    num_valid |= num*sessionkeyinfo[0].abs_validity[i];
+                }
+                printf("abs_valid : %ld\n", num_valid);
+                num_valid = num_valid/1000;
+                long int relvalidity = read_variable_UInt(sessionkeyinfo[0].rel_validity, 0, 6)/1000;
+                
+                if(time(NULL) > num_valid || time(NULL) - validity_time.st_time >relvalidity)
+                {
+                    printf("session key is expired");
+                    break;
+                }
+                else
+                {
+                unsigned char message[32]; 
                 memset(message,0,32);
                 scanf("%s", message);
+
+
                 unsigned char msg_buf[80];
                 unsigned char msg_data[32];
                 int msg_data_len = sizeof(msg_data);    
-
+                
                 memset(msg_data,0,msg_data_len);
                 msg_data[7] += seq_num;
                 
@@ -1116,11 +1167,15 @@ int main(int argc, char* argv[])
                 memcpy(save_msg[seq_num].receive_message,message,sizeof(message));
                 print_buf(save_msg[seq_num].receive_message, sizeof(message));
                 printf("send the message: %s\n",message );
+                save_msg[n].send_seq_num = seq_num;
+                printf("seq_num : %d \n", seq_num);
                 seq_num += 1;
+                
+                }
             }
                 else if(strncmp((char *) command, (char *) "finComm", 7) == 0 )
             {
-                
+                free(multiple_arg);
                 printf("Exit !!\n");
                 break;
             }
