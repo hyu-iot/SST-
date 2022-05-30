@@ -120,17 +120,8 @@ unsigned char auth_id[AUTH_ID_LEN];
 char sender_req[] = "net1.client";
 char purpose_req[] = "{\"group\":\"Servers\"}";
 
-// void nonce_generator(unsigned char * nonce_buf, int size_n) ;
-void symmetricdecryptAuthenticate(struct sessionkey_info S[], unsigned char *in_buf, int p, unsigned char *out_buf, int q);
+void symmetricdecryptAuthenticate(struct sessionkey_info S, unsigned char *in_buf, int p, unsigned char *out_buf, int q);
 
-
-// void slice(unsigned char * des_buf, unsigned char * buf, int a, int b )
-// {
-//     for(int i=0;i<b-a;i++)
-//     {
-//         des_buf[i] = buf[a+i];
-//     }
-// }
 
 int read_variable_UInt(unsigned char * read_buf,int offset, int byteLength)
 {
@@ -187,13 +178,6 @@ void make_time(unsigned char * time_buf, int index, int byte_length)
     );
 }
 
-// void print_buf(unsigned char * print_buffer, int n)
-// {
-//     for(int i=0 ; i<n; i++)
-//         printf("%x  ", print_buffer[i]);
-//     printf("\n");
-// }
-
 int print_seq_num(unsigned char *buf)
 {
     int seq=0;
@@ -244,7 +228,7 @@ void *receive_message(void *multiple_arg)  /* read thread */
         printf("msg : ");
         print_buf(buf_msg,str_len);
         unsigned char dec[100];
-        symmetricdecryptAuthenticate(sessionkeyinfo,buf_msg,str_len,dec,sizeof(dec));
+        symmetricdecryptAuthenticate(sessionkeyinfo[0],buf_msg,str_len,dec,sizeof(dec));
         
         memset(save_msg[n].receive_message,0,sizeof(save_msg[n].receive_message));
         int seq_num = print_seq_num(dec);
@@ -368,7 +352,7 @@ void parseHandshake(unsigned char * buff, struct received_nonce A[]) {
     
 };
 
-void symmetricEncryptAuthenticate(struct sessionkey_info S[], unsigned char * p, unsigned char * z, int b, int a) // a�� key id�� ������ or ���� ������!!
+void symmetricEncryptAuthenticate(struct sessionkey_info S, unsigned char * p, unsigned char * z, int b, int a) // a�� key id�� ������ or ���� ������!!
 {
         int iv_size =16;
         unsigned char iv[iv_size];
@@ -381,7 +365,7 @@ void symmetricEncryptAuthenticate(struct sessionkey_info S[], unsigned char * p,
         AES_KEY enc_key_128;
         unsigned char enc[32];
         memcpy(enc_mac,iv,iv_size);
-        if(AES_set_encrypt_key(S[0].cipher_key, 16*8, &enc_key_128) < 0)
+        if(AES_set_encrypt_key(S.cipher_key, 16*8, &enc_key_128) < 0)
         {
             printf("error!!!");
         }; 
@@ -399,15 +383,15 @@ void symmetricEncryptAuthenticate(struct sessionkey_info S[], unsigned char * p,
         // Hmac
         unsigned char hmac[32];
         unsigned int hmac_size = 32;
-        HMAC(EVP_sha256(),S[0].mac_key , sizeof(S[0].mac_key),
+        HMAC(EVP_sha256(),S.mac_key , sizeof(S.mac_key),
          enc_mac, sizeof(enc_mac), hmac, &hmac_size);
         printf("hmac : \n");
         print_buf(hmac,sizeof(hmac));
         // enc + tag
         if(a ==1){ // handshake1 need a key id 
-            memcpy(p,S[0].key_id,sizeof(S[0].key_id)); //8
-            memcpy(p+sizeof(S[0].key_id),enc_mac,sizeof(enc_mac)); //48
-            memcpy(p+sizeof(S[0].key_id)+sizeof(enc_mac), hmac, sizeof(hmac)); //32
+            memcpy(p,S.key_id,sizeof(S.key_id)); //8
+            memcpy(p+sizeof(S.key_id),enc_mac,sizeof(enc_mac)); //48
+            memcpy(p+sizeof(S.key_id)+sizeof(enc_mac), hmac, sizeof(hmac)); //32
             printf(" : \n");
 
             print_buf(p,88);
@@ -421,7 +405,7 @@ void symmetricEncryptAuthenticate(struct sessionkey_info S[], unsigned char * p,
         }
 }
 
-void symmetricdecryptAuthenticate(struct sessionkey_info S[], unsigned char *in_buf, int p, unsigned char *out_buf, int q)
+void symmetricdecryptAuthenticate(struct sessionkey_info S, unsigned char *in_buf, int p, unsigned char *out_buf, int q)
 {
         int payload_buf_num, buf_num; 
         payload_buf_num = payload_length(in_buf,p);
@@ -437,7 +421,7 @@ void symmetricdecryptAuthenticate(struct sessionkey_info S[], unsigned char *in_
         slice(received_tag,in_buf,buf_num+1+payload_buf_num-mac_size, payload_buf_num+buf_num+1);
         print_buf(enc,sizeof(enc));
         print_buf(received_tag,sizeof(received_tag));
-        HMAC(EVP_sha256(),S[0].mac_key , 32, enc, sizeof(enc), result, &result_len);
+        HMAC(EVP_sha256(),S.mac_key , 32, enc, sizeof(enc), result, &result_len);
         
         if(strncmp((char *)result, (char *) received_tag, sizeof(result)) == 0 )
         {
@@ -451,46 +435,14 @@ void symmetricdecryptAuthenticate(struct sessionkey_info S[], unsigned char *in_
         memset(out_buf,0,q);
         slice(iv,enc,0,iv_size);
         slice(enc_symmetric_cipher,enc,iv_size,sizeof(enc));
-        if(AES_set_decrypt_key(S[0].cipher_key, sizeof(S[0].cipher_key)*8, &enc_key_128) < 0){
+        if(AES_set_decrypt_key(S.cipher_key, sizeof(S.cipher_key)*8, &enc_key_128) < 0){
             printf("error");
         }; 
         AES_cbc_encrypt(enc_symmetric_cipher, out_buf,sizeof(enc_symmetric_cipher), &enc_key_128, iv, 0);
         printf("decrypted value: \n");
         print_buf(out_buf,32);
 }
-// void TcpCommunication(int argc, char* argv[]) // TCP Connection(client)
-// {
-//     int my_sock;
-//     struct sockaddr_in serv_addr;
-//     int str_len;
-//     if(argc != 3)
-//     {
-//         printf("%s <IP> <PORT>\n", argv[0]);
-//         exit(1);
-//     }
-//     my_sock = socket(PF_INET,SOCK_STREAM,0); //1��
-//     if(my_sock == -1)
-//         printf("socket error \n");
-//     memset(&serv_addr,0,sizeof(serv_addr));
-//     serv_addr.sin_family = AF_INET;
-//     serv_addr.sin_addr.s_addr=inet_addr(argv[1]);
-//     serv_addr.sin_port=htons(atoi(argv[2]));
 
-//     if(connect(my_sock,(struct sockaddr*)&serv_addr,sizeof(serv_addr))==-1) //2��
-//         printf("connect error\n");
-//     memset(message,0x00,sizeof(message));
-//     str_len = read(my_sock,message,sizeof(message)-1); //3��
-//     if(str_len==-1)
-//         printf("read error\n");
-//     if(message[0] == 0)
-//         printf("Received AUTH_HELLO Message!!! \n");
-//         printf("Receiving message from Auth : ");
-//     for(int i=0; i<str_len ; i++)
-//     {
-//         printf("%x ",message[i]);
-//     }
-//     close(my_sock); //4
-// }
 
 RSA * createRSA(unsigned char * key,int public)
 {
@@ -596,7 +548,7 @@ int main(int argc, char* argv[])
             printf("Received AUTH_HELLO Message!!! \n");
             printf("Receiving message from Auth : ");
             print_buf(message, str_len);
-
+            /////////////////////////////////
             AuthID();
             AuthNonce();
             numkey();
@@ -683,9 +635,9 @@ int main(int argc, char* argv[])
         str_len = read(my_sock,message,sizeof(message)-1); //3
         if(str_len==-1)
             printf("read error\n");
-        //////// msg type 21!
+        //////// msg type 21 /////////
         if(message[0] == 21)
-        {   
+        {
             printf("\nreceived session key response with distribution key attached! \n");
             printf("Receiving message length from Auth : %d \n", str_len);
             int num =0;
@@ -703,8 +655,9 @@ int main(int argc, char* argv[])
                     break;
                 }
             }
-            
             unsigned char payload[num];
+
+
             for(int i = 0; i<num; i++)
             {
                 payload[i] = message[i+1+message_length];
@@ -727,7 +680,7 @@ int main(int argc, char* argv[])
             unsigned char ret_signiture[256];
             memcpy(ret_data,distribution_key,256);
             slice(ret_signiture,distribution_key, 256, sizeof(distribution_key) );
-            ////// Message digest
+            ////// Message digest //////
             unsigned char dig_enc[SHA256_DIGEST_LENGTH];
             make_degest_msg(dig_enc , ret_data,sizeof(ret_data) );
             ////// Verify
@@ -955,7 +908,7 @@ int main(int argc, char* argv[])
         }
 
 
-//////////////////////////////////handshake!!!!!!////////////////////////////////
+        //////////////////////////////////handshake!!!!!!////////////////////////////////
         if(argc != 3)
         {
             printf("%s <IP> <PORT>\n", argv[0]);
@@ -990,7 +943,7 @@ int main(int argc, char* argv[])
         printf("serialize handshake : \n");
         print_buf(hand_buf_data,17);
 
-        symmetricEncryptAuthenticate(sessionkeyinfo,hand_buf,hand_buf_data,17,1);
+        symmetricEncryptAuthenticate(sessionkeyinfo[0],hand_buf,hand_buf_data,17,1);
         // printf(hand_buf,10);
         printf("key id: \n");
         print_buf(sessionkeyinfo[0].key_id,8);
@@ -1031,7 +984,7 @@ int main(int argc, char* argv[])
         printf("Message type: %d\n", message[0]);
         unsigned char dec[100];
 
-        symmetricdecryptAuthenticate(sessionkeyinfo,message,str_len,dec,sizeof(dec));
+        symmetricdecryptAuthenticate(sessionkeyinfo[0],message,str_len,dec,sizeof(dec));
 
         struct received_nonce nonce[2];
 
@@ -1043,7 +996,7 @@ int main(int argc, char* argv[])
         print_buf(nonce->server_nonce,NONCE_SIZE);
         if(strncmp((char *)nonce[0].client_nonce, (char *) sessionkeyinfo[0].nonce, NONCE_SIZE) == 0 )
         {
-            printf("Nonce�� ��ġ�߽��ϴ�. \n");
+            printf("Nonce is the same \n");
         }
         else
             printf("auth nonce NOT verified\n");
@@ -1058,7 +1011,7 @@ int main(int argc, char* argv[])
 
         unsigned char hand_buf2[80];
 
-        symmetricEncryptAuthenticate(sessionkeyinfo,hand_buf2, hand_buf2_data, 17, 0);
+        symmetricEncryptAuthenticate(sessionkeyinfo[0],hand_buf2, hand_buf2_data, 17, 0);
 
 
         unsigned char extra_buf2[5];
@@ -1144,7 +1097,7 @@ int main(int argc, char* argv[])
                 
                 memcpy(msg_data+8,message,strlen(message));
 
-                symmetricEncryptAuthenticate(sessionkeyinfo,msg_buf,msg_data,msg_data_len,0);
+                symmetricEncryptAuthenticate(sessionkeyinfo[0],msg_buf,msg_data,msg_data_len,0);
                 
                 unsigned char extra_buf3[5];
                 unsigned int num3 = sizeof(msg_buf);
