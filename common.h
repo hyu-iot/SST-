@@ -53,12 +53,25 @@
 #define NUMKEY 4
 #define NONCE_SIZE 8
 
+// Session key Resp //
 
+// int padding = RSA_PKCS1_PADDING;
+
+typedef struct
+{
+    unsigned char nonce[NONCE_SIZE];
+    
+}nonce;
 
 void nonce_generator(unsigned char * nonce_buf, int size_n) ;
 void slice(unsigned char * des_buf, unsigned char * buf, int a, int b );
 int payload_buf_length(int b);
 int payload_length(unsigned char * message, int b);
+int put_in_buf(unsigned char *buffer, int a);
 void print_buf(unsigned char * print_buffer, int n);
 
+void num_key_to_buffer(unsigned char * buffer, int index, int n);
+void Nonce_sort(unsigned char *buffer, size_t size);
+int save_senpup(unsigned char *buffer, int index, 
+            unsigned char * s, size_t num_s, unsigned char * p, size_t num_p);
 #endif

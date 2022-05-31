@@ -257,8 +257,6 @@ void *thread_main(void * my_fd)  /* read thread */
     }
 }
 
-
-
 void print_Last_error(char *msg){
     char * err = malloc(130);;
     ERR_load_crypto_strings();
@@ -266,6 +264,7 @@ void print_Last_error(char *msg){
     printf("%s ERROR: %s\n",msg, err);
     free(err);
 }
+
 void sender()
 {
     strcpy(SessionKeyReq.Sender,sender_req);
@@ -291,6 +290,7 @@ void AuthID()
         auth_id[i] = message[i+2]; 
     }
 }
+
 void AuthNonce()
 {
     for(int j = 0; j<sizeof(message)-(AUTH_ID_LEN+2)-1;j++)
@@ -298,6 +298,7 @@ void AuthNonce()
         SessionKeyReq.Auth_nonce[j] = message[AUTH_ID_LEN+2+j];
     }
 }
+
 // void nonce_generator(unsigned char * nonce_buf, int size_n)  // nonce generator;
 // {
 //     int x = RAND_bytes(nonce_buf,size_n);
@@ -308,7 +309,7 @@ void AuthNonce()
 //     }
 // }    
 
-unsigned char buf [NONCE_SIZE*2 + NUMKEY + 1 + 12 + 1 + 20]; //buf[20+]
+unsigned char buf [NONCE_SIZE*2 + NUMKEY + 1 + 12 + 1 + 200]; //buf[20+]
 // unsigned char buf [8196]; //buf[20+]
 
 void serializeSessionkeyReq() 
@@ -324,11 +325,11 @@ void serializeSessionkeyReq()
     {                                                      
         memcpy(buf,SessionKeyReq.Entity_nonce, NONCE_SIZE); //Entity_nonce
         memcpy(buf+NONCE_SIZE,SessionKeyReq.Auth_nonce,NONCE_SIZE); //Auth_nonce
-        memcpy(buf+NONCE_SIZE*2,SessionKeyReq.NumKeys,NUMKEY); 
-        memcpy(buf+NONCE_SIZE*2+NUMKEY,SessionKeyReq.Sender_len,1); 
-        memcpy(buf+NONCE_SIZE*2+NUMKEY+1,SessionKeyReq.Sender,strlen(SessionKeyReq.Sender)); 
-        memcpy(buf+NONCE_SIZE*2+NUMKEY+1+strlen(SessionKeyReq.Sender),SessionKeyReq.Purpose_len,1); 
-        memcpy(buf+NONCE_SIZE*2+NUMKEY+1+strlen(SessionKeyReq.Sender)+1,SessionKeyReq.Purpose,strlen(SessionKeyReq.Purpose)); 
+        memcpy(buf+NONCE_SIZE*2,SessionKeyReq.NumKeys,NUMKEY);
+        memcpy(buf+NONCE_SIZE*2+NUMKEY,SessionKeyReq.Sender_len,1);
+        memcpy(buf+NONCE_SIZE*2+NUMKEY+1,SessionKeyReq.Sender,strlen(SessionKeyReq.Sender));
+        memcpy(buf+NONCE_SIZE*2+NUMKEY+1+strlen(SessionKeyReq.Sender),SessionKeyReq.Purpose_len,1);
+        memcpy(buf+NONCE_SIZE*2+NUMKEY+1+strlen(SessionKeyReq.Sender)+1,SessionKeyReq.Purpose,strlen(SessionKeyReq.Purpose));
         
     printf("-- Serialize -- \n");
     print_buf(buf,sizeof(buf));
@@ -492,7 +493,6 @@ int public_encrypt(unsigned char * data,int data_len, unsigned char *encrypted)
 
 int private_decrypt(unsigned char * enc_data,int data_len, unsigned char *decrypted, char *key)
 {
-
     FILE *keyfile = fopen("../SST-/sst/iotauth/entity/credentials/keys/net1/Net1.ClientKey.pem", "rb"); 
     RSA *rsa = PEM_read_RSAPrivateKey(keyfile, NULL, NULL, NULL);
     int  result = RSA_private_decrypt(data_len,enc_data,decrypted,rsa,padding);
@@ -584,10 +584,12 @@ int main(int argc, char* argv[])
 
             make_degest_msg(dig_enc, encrypted, encrypted_length);
 
+            //// sign!
+
             FILE *keyfile = fopen("../SST-/sst/iotauth/entity/credentials/keys/net1/Net1.ClientKey.pem", "rb"); 
             RSA *rsa = PEM_read_RSAPrivateKey(keyfile, NULL, NULL, NULL);
 
-            //// sign!
+
             int sign_result = RSA_sign(NID_sha256, dig_enc,SHA256_DIGEST_LENGTH,
                 sigret, &sigret_Length, rsa);
             if(sign_result ==1)
@@ -679,7 +681,7 @@ int main(int argc, char* argv[])
             unsigned char ret_data[256];
             unsigned char ret_signiture[256];
             memcpy(ret_data,distribution_key,256);
-            slice(ret_signiture,distribution_key, 256, sizeof(distribution_key) );
+            slice(ret_signiture,distribution_key, 256, sizeof(distribution_key));
             ////// Message digest //////
             unsigned char dig_enc[SHA256_DIGEST_LENGTH];
             make_degest_msg(dig_enc , ret_data,sizeof(ret_data) );
@@ -807,10 +809,10 @@ int main(int argc, char* argv[])
                     break;
                 }
             }
-            //dec_data�� entity_nonce 8�� , �� �� ���� 39���� ��Ÿ���� ���� 1��, crypto spec 39�� 0 0 0 3 => 3��
-            //NONCE_SIZE + resp_message_length(9)���� NONCE_SIZE + resp_message_length+strLen ����
+            //dec_data�� entity_nonce 8�� , 39 1, crypto spec 39�� 0 0 0 3 => 3��
+            //NONCE_SIZE + resp_message_length(9) NONCE_SIZE + resp_message_length+strLen ����
 
-            // cryptoSpec �����ϴ� �κ�!!!!
+            // cryptoSpec !!!!
             int strLen = resp_num; // 39
             unsigned char resp_str[strLen];
             printf("crypto spec : ");

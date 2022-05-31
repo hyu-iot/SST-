@@ -1,7 +1,6 @@
 
 #include "secure_comm.h"
 
-// unsigned char message[1024];
 
 void TCP_connection(int argc, char* argv[], unsigned char  *message,size_t size)
 {
@@ -30,9 +29,18 @@ void TCP_connection(int argc, char* argv[], unsigned char  *message,size_t size)
         printf("str_len : %d\n",str_len);
         print_buf(message,str_len);
 
-        Entity_Auth(message, size);
-        
-
+        int buffer_len = Entity_Auth(message, size);
+        if(message[0] == SESSION_KEY_REQ_IN_PUB_ENC)
+        {
+            // unsigned char *s1 = malloc(buffer_len);
+            // memcpy(s1, message, buffer_len);
+            write(my_sock, message, buffer_len);
+            // free(s1);
+        }
+        else
+        {
+            break;
+        }
         }
 
 

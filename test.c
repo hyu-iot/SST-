@@ -6,12 +6,11 @@
 
 unsigned char message[1024];
 
-
 int main(int argc, char* argv[])
 {
+    
     size_t size = (&message)[1] - message;
     printf("message size:  %ld\n",size);
-
     TCP_connection(argc, argv, message,size);
 
 }

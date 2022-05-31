@@ -2,7 +2,8 @@
 #define ENTITY_AUTH
 
 #include "common.h"
+#include "crypto.h"
 
-void Entity_Auth(unsigned char * message, size_t size);
+int Entity_Auth(unsigned char * message, size_t size);
 
 #endif
