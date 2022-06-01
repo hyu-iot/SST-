@@ -31,15 +31,14 @@ int payload_buf_length(int b)
     return n;
 }
 
-int payload_length(unsigned char * message, int b)
+int payload_length(unsigned char * message, int index)
 {
     int num = 0;
-    for (int i =0; i<b&& i<5; i++)
+    for (int i =0; i<4; i++)
     {
-        num |= (message[1+i]& 127) <<(7 * i);
-        if((message[1+i]&128) == 0 )
+        num |= (message[index+i]& 127) <<(7*i);
+        if((message[index+i]&128) == 0 )
         {
-            i+= 1;
             break;
         }
     }
@@ -67,6 +66,14 @@ void print_buf(unsigned char * print_buffer, int n)
     printf("\n");
 }
 
+void print_string(unsigned char * buffer, int n, int b)
+{
+    for(n; n<b ; n++)
+    {
+        printf("%c", buffer[n]);
+    }
+    printf("\n");
+}
 // payload를 버퍼로 옮길 때!!
 void num_key_to_buffer(unsigned char * buffer, int index, int n)
 {
@@ -78,7 +85,7 @@ void num_key_to_buffer(unsigned char * buffer, int index, int n)
 
 void Nonce_sort(unsigned char *buffer, size_t size)
 {
-    int payload_len = payload_length(buffer,size);
+    int payload_len = payload_length(buffer,1);
     int buf_len = payload_buf_length(payload_len);
     slice(buffer,buffer,5+buf_len,5+buf_len+NONCE_SIZE); // msg type + buf_len + ID
     memcpy(buffer+8,buffer,8);
@@ -96,4 +103,15 @@ int save_senpup(unsigned char *buffer, int index,
     memcpy(buffer+index+1+num_s , n_p, 1);
     memcpy(buffer+index+1+num_s+1 , p, num_p);
     return index+2+num_s+num_p;
+}
+
+int read_variable_UInt(unsigned char * read_buf,int offset, int byteLength)
+{
+    int num =0;
+    unsigned long int sum =1LU;
+    for(int i =0; i<byteLength;i++)
+    {
+        num |= read_buf[offset+i]<< 8*(byteLength-1-i);
+    }
+    return num; 
 }

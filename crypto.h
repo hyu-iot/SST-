@@ -6,8 +6,12 @@
 // Crypto spec !
 
 #define DIST_KEY_EXPIRATION_TIME_SIZE 6
+#define KEY_EXPIRATION_TIME_SIZE 6
 #define MAC_KEY_SIZE 32
 #define CIPHER_KEY_SIZE 16
+#define DIST_ENC_SIZE 512
+#define IV_SIZE 16
+#define KEY_BUF 4
 
 typedef struct
 {
@@ -19,12 +23,11 @@ typedef struct
 
 typedef struct
 {
-    unsigned char key_id[8];
-    unsigned char abs_validity[6];
-    unsigned char rel_validity[6];
-    unsigned char mac_key[32];
-    unsigned char cipher_key[16];
-    unsigned char nonce[8];
+    unsigned char key_id[KEY_ID_SIZE];
+    unsigned char abs_validity[KEY_EXPIRATION_TIME_SIZE];
+    unsigned char rel_validity[KEY_EXPIRATION_TIME_SIZE];
+    unsigned char mac_key[MAC_KEY_SIZE];
+    unsigned char cipher_key[CIPHER_KEY_SIZE];
 }sessionkey; 
 
 void print_Last_error(char *msg);
@@ -33,8 +36,9 @@ int private_decrypt(unsigned char * enc_data,int data_len, unsigned char *decryp
 void make_degest_msg(unsigned char *dig_enc, unsigned char *encrypted ,int encrypted_length);
 int encrypt_sign(unsigned char *message, size_t size);
 void sign_verify(unsigned char * dig, int dig_size, unsigned char *ret, int ret_size);
-void dist_key_decrypt(unsigned char * buffer, int index, distribution_key D);
-void sess_key_decrypt(unsigned char *buf, int index, sessionkey S, distribution_key D);
+void dist_key_decrypt(unsigned char * buffer, int index, distribution_key *D);
+void sess_key_decrypt(unsigned char *buf, int size, sessionkey S[], distribution_key *D);
+void get_sessionkey(unsigned char *buf, int index, int key_num, sessionkey S[]);
 
 
 #endif

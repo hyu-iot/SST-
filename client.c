@@ -353,7 +353,7 @@ void parseHandshake(unsigned char * buff, struct received_nonce A[]) {
     
 };
 
-void symmetricEncryptAuthenticate(struct sessionkey_info S, unsigned char * p, unsigned char * z, int b, int a) // a�� key id�� ������ or ���� ������!!
+void symmetricEncryptAuthenticate(struct sessionkey_info S, unsigned char * p, unsigned char * z, int b, int a) 
 {
         int iv_size =16;
         unsigned char iv[iv_size];
@@ -740,7 +740,7 @@ int main(int argc, char* argv[])
             slice(mac_key_value,dec_buf,cur_index,cur_index+mac_key_size);
             print_buf(mac_key_value,mac_key_size);
 
-            // session_key, absValidity, cipher_key_value, mac_key_value;
+            // session_key, absValidity, cipher_key_value, mac_key_value;//////////////////////////2022.06.01 여기 할 차례
 
             //symmetricDecryptAuthenticate 
             int mac_size = 32; // sha256�� ��, 32 , SHA1 �� ��, 20
@@ -933,7 +933,7 @@ int main(int argc, char* argv[])
         print_buf(sessionkeyinfo[0].mac_key,32);
 
         unsigned char hand_buf[88];
-
+////////////////////////// 2022.06.02 시작!
         printf("-- Client nonce --\n");
         nonce_generator(sessionkeyinfo[0].nonce, NONCE_SIZE);
 

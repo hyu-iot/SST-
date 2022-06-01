@@ -54,6 +54,8 @@
 #define NONCE_SIZE 8
 
 // Session key Resp //
+#define MAC_SIZE 32
+#define KEY_ID_SIZE 8
 
 // int padding = RSA_PKCS1_PADDING;
 
@@ -69,9 +71,15 @@ int payload_buf_length(int b);
 int payload_length(unsigned char * message, int b);
 int put_in_buf(unsigned char *buffer, int a);
 void print_buf(unsigned char * print_buffer, int n);
+void print_string(unsigned char * buffer, int n, int b);
+
 
 void num_key_to_buffer(unsigned char * buffer, int index, int n);
 void Nonce_sort(unsigned char *buffer, size_t size);
 int save_senpup(unsigned char *buffer, int index, 
             unsigned char * s, size_t num_s, unsigned char * p, size_t num_p);
+int read_variable_UInt(unsigned char * read_buf,int offset, int byteLength);
+
+
+
 #endif

@@ -29,24 +29,27 @@ int Entity_Auth(unsigned char * msg, size_t size)
     else if(msg[0] == SESSION_KEY_RESP_WITH_DIST_KEY)
     {
         printf("\nreceived session key response with distribution key attached! \n");
-        int payload_len = payload_length(msg,size);
+        int payload_len = payload_length(msg,1);
         int buf_len = payload_buf_length(payload_len);
-
-        unsigned char *s1 = malloc(payload_len - 512);
-        // memcpy(s1,msg,)
-
-        dist_key_decrypt(msg, 1+buf_len,dist_key);
-        print_buf(entity_nonce.nonce,8);
-
-        // TODO: malloc indexing 필요해보임. sessionkey를 나눠야함. 동적할당으로!
-        // sess_key_decrypt()
-        
-
-
-        free(s1);
-
-
+        printf("payload len: %d, buf len: %d\n",payload_len,buf_len );
+        unsigned char *s1 = malloc(payload_len - DIST_ENC_SIZE);
+        slice(s1,msg,DIST_ENC_SIZE+1+buf_len,1+buf_len+payload_len);
+        dist_key_decrypt(msg, 1+buf_len,  &dist_key);
+        sess_key_decrypt(s1, payload_len - DIST_ENC_SIZE, sess_key, &dist_key);
+        if(strncmp((char *)s1, (char *) entity_nonce.nonce, NONCE_SIZE) == 0 )
+        {
+            printf("Nonce is consistent. \n");
+        }
+        else
+            printf("auth nonce NOT verified\n");
         return 0;
+        free(s1);
     }
+}
+
+int Entity_Entity(unsigned char * msg, size_t size)
+{
+    msg[0] = ENTITY_HELLO; //1
+    
 
 }

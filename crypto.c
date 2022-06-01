@@ -99,7 +99,7 @@ void sign_verify(unsigned char * dig, int dig_size, unsigned char *ret, int ret_
         printf("auth signature verified \n\n");
 }
 
-void dist_key_decrypt(unsigned char * buffer, int index, distribution_key D)
+void dist_key_decrypt(unsigned char * buffer, int index, distribution_key *D)
 {
     
     unsigned char ret_data[256];
@@ -127,15 +127,79 @@ void dist_key_decrypt(unsigned char * buffer, int index, distribution_key D)
     printf(" -- decrypted value -- \n");
     print_buf(buffer, dec_length);
 
-    slice(D.absvalidity,buffer,0,DIST_KEY_EXPIRATION_TIME_SIZE);
-    slice(D.cipher_key,buffer,DIST_KEY_EXPIRATION_TIME_SIZE+1,
+    slice(D->absvalidity,buffer,0,DIST_KEY_EXPIRATION_TIME_SIZE);
+    slice(D->cipher_key,buffer,DIST_KEY_EXPIRATION_TIME_SIZE+1,
             DIST_KEY_EXPIRATION_TIME_SIZE+1+CIPHER_KEY_SIZE);
-    slice(D.mac_key,buffer,DIST_KEY_EXPIRATION_TIME_SIZE+2+CIPHER_KEY_SIZE,
+    slice(D->mac_key,buffer,DIST_KEY_EXPIRATION_TIME_SIZE+2+CIPHER_KEY_SIZE,
             DIST_KEY_EXPIRATION_TIME_SIZE+2+CIPHER_KEY_SIZE+MAC_KEY_SIZE);
+    print_buf(D->mac_key,32);
 
 }
 
-void sess_key_decrypt(unsigned char *buf, int index, sessionkey S, distribution_key D)
+void sess_key_decrypt(unsigned char *buf, int size, sessionkey S[], distribution_key *D)
 {
+    unsigned char received_tag[MAC_KEY_SIZE];
+    unsigned char result[MAC_KEY_SIZE];
+    unsigned int result_len = MAC_KEY_SIZE;
+    unsigned char *symmetric_data = malloc(size-MAC_KEY_SIZE);
+    unsigned char iv[IV_SIZE];
+    unsigned char *symmetric_enc = malloc(size-MAC_KEY_SIZE-IV_SIZE);
 
+    slice(symmetric_data,buf,0,size-MAC_KEY_SIZE);
+    slice(received_tag, buf, size-MAC_KEY_SIZE, size);
+    HMAC(EVP_sha256(), D->mac_key , MAC_KEY_SIZE,
+         symmetric_data, size-MAC_KEY_SIZE, result, &result_len);
+
+    if(strncmp((char *)result, (char *) received_tag, result_len) == 0 )
+    {
+        printf("Hmac success!!! \n");
+    }
+
+    AES_KEY enc_key_128;
+    slice(iv,symmetric_data,0,IV_SIZE);
+    slice(symmetric_enc,symmetric_data,IV_SIZE,size-MAC_KEY_SIZE);
+    free(symmetric_data);
+    if(AES_set_decrypt_key(D->cipher_key, CIPHER_KEY_SIZE*8, &enc_key_128) < 0){
+        printf("AES Decrypt Error!");  
+    };
+    AES_cbc_encrypt( symmetric_enc, buf,size-MAC_KEY_SIZE-IV_SIZE, &enc_key_128, iv, 0);
+    free(symmetric_enc);
+    print_buf(buf,256);
+    //buf 8 : entity nonce
+    int payload_len = payload_length(buf,NONCE_SIZE);
+    int buf_len = payload_buf_length(payload_len);
+    printf("payload len: %d, buf len: %d\n",payload_len,buf_len );
+    printf("Crypto spec: ");
+    print_string(buf,NONCE_SIZE+buf_len,NONCE_SIZE+buf_len+payload_len);
+    
+    int key_num =0;
+    for(int i=0; i<KEY_BUF; i++)
+    {
+        key_num |= buf[NONCE_SIZE + key_num + buf_len+ payload_len + i] <<8*(3-i);
+    }
+    int index = NONCE_SIZE + buf_len+ payload_len + KEY_BUF;
+    printf("key num : %d\n", key_num);
+    get_sessionkey(buf, index, key_num, S);
+}
+
+void get_sessionkey(unsigned char *buf, int index, int key_num, sessionkey S[])
+{
+    printf("index : %d\n", index);
+    int cur_index_par =0;
+    cur_index_par += index;
+    for(int i=0;i<key_num;i++)
+    {
+        slice(S[i].key_id,buf,cur_index_par,cur_index_par+KEY_ID_SIZE);
+        long int key_id = read_variable_UInt(buf,cur_index_par , KEY_ID_SIZE);
+        printf("key id : %ld\n", key_id);
+        cur_index_par += KEY_ID_SIZE;
+        slice(S[i].abs_validity,buf,cur_index_par,cur_index_par+KEY_EXPIRATION_TIME_SIZE);
+        cur_index_par += KEY_EXPIRATION_TIME_SIZE;
+        slice(S[i].rel_validity,buf,cur_index_par , cur_index_par+ KEY_EXPIRATION_TIME_SIZE);
+        cur_index_par += KEY_EXPIRATION_TIME_SIZE+1;
+        slice(S[i].cipher_key,buf,cur_index_par,cur_index_par+CIPHER_KEY_SIZE);
+        cur_index_par += CIPHER_KEY_SIZE+1;
+        slice(S[i].mac_key,buf,cur_index_par,cur_index_par+MAC_KEY_SIZE);
+        cur_index_par += MAC_KEY_SIZE;
+    }
 }
