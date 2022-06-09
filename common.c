@@ -74,6 +74,18 @@ void print_string(unsigned char * buffer, int n, int b)
     }
     printf("\n");
 }
+
+int print_seq_num(unsigned char *buf)
+{
+    int seq=0;
+    for(int i =0 ; i<sizeof(buf);i++)
+    {
+        seq |= buf[i] <<(8 * (sizeof(buf)-i-1));
+    }
+    printf("Sequence number : %d\n",seq);
+    return seq;
+}
+
 // payload를 버퍼로 옮길 때!!
 void num_key_to_buffer(unsigned char * buffer, int index, int n)
 {
@@ -115,3 +127,19 @@ int read_variable_UInt(unsigned char * read_buf,int offset, int byteLength)
     }
     return num; 
 }
+
+void parseHandshake(unsigned char * buff, nonce *A) {
+
+    if ((buff[0] & 1) != 0) {
+        // nonce exists
+        slice(A->nonce,buff,1, 1 + NONCE_SIZE);
+    }
+    if ((buff[0] & 2) != 0) {
+        // replayNonce exists
+        slice(A->reply_nonce,buff,1+NONCE_SIZE,1+NONCE_SIZE*2);
+    }
+    if ((buff[0] & 4) != 0) {
+        slice(A->dhParam,buff,1+NONCE_SIZE*2,1+NONCE_SIZE*3);
+    }
+    
+};

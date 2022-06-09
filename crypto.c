@@ -144,7 +144,7 @@ void sess_key_decrypt(unsigned char *buf, int size, sessionkey S[], distribution
     unsigned char *symmetric_data = malloc(size-MAC_KEY_SIZE);
     unsigned char iv[IV_SIZE];
     unsigned char *symmetric_enc = malloc(size-MAC_KEY_SIZE-IV_SIZE);
-
+    
     slice(symmetric_data,buf,0,size-MAC_KEY_SIZE);
     slice(received_tag, buf, size-MAC_KEY_SIZE, size);
     HMAC(EVP_sha256(), D->mac_key , MAC_KEY_SIZE,
@@ -190,8 +190,9 @@ void get_sessionkey(unsigned char *buf, int index, int key_num, sessionkey S[])
     for(int i=0;i<key_num;i++)
     {
         slice(S[i].key_id,buf,cur_index_par,cur_index_par+KEY_ID_SIZE);
+        // print_buf(S[i].key_id,8);
         long int key_id = read_variable_UInt(buf,cur_index_par , KEY_ID_SIZE);
-        printf("key id : %ld\n", key_id);
+        // printf("key id : %ld\n", key_id);
         cur_index_par += KEY_ID_SIZE;
         slice(S[i].abs_validity,buf,cur_index_par,cur_index_par+KEY_EXPIRATION_TIME_SIZE);
         cur_index_par += KEY_EXPIRATION_TIME_SIZE;
@@ -202,4 +203,86 @@ void get_sessionkey(unsigned char *buf, int index, int key_num, sessionkey S[])
         slice(S[i].mac_key,buf,cur_index_par,cur_index_par+MAC_KEY_SIZE);
         cur_index_par += MAC_KEY_SIZE;
     }
+}
+
+int symmetricEncryptAuthenticate(sessionkey S, unsigned char * message, unsigned char * z, int data_len, int t) 
+{
+    unsigned char iv[IV_SIZE];
+    unsigned char iv2[IV_SIZE];
+    RAND_bytes(iv,IV_SIZE);
+    //// Encrypt 후에 iv가 바뀌어서 이를 미리 저장해줘야 함!!
+    memcpy(message,iv,16);
+
+    unsigned char enc[32];
+    AES_KEY enc_key_128;
+    print_buf(message,32);
+    print_buf(S.cipher_key,CIPHER_KEY_SIZE);
+    print_buf(S.mac_key,MAC_KEY_SIZE);
+    if(AES_set_encrypt_key(S.cipher_key, 16*8, &enc_key_128) < 0)
+    {
+        printf("error!!!");
+    }; 
+    AES_cbc_encrypt( z, enc, data_len, &enc_key_128, iv, 1); 
+
+    memcpy(message+IV_SIZE,enc,32);
+    print_buf(iv,16);
+    unsigned char hmac[MAC_KEY_SIZE];
+    unsigned int hmac_size = MAC_KEY_SIZE;
+    HMAC(EVP_sha256(),S.mac_key , MAC_KEY_SIZE,
+        message, 48, hmac, &hmac_size);
+    int size;
+    if(t == 1)
+    {
+        size = 32+ 48 + 8;
+        memcpy(message+KEY_ID_SIZE+2,message,48);
+        memcpy(message+2,S.key_id,KEY_ID_SIZE);
+        memcpy(message+KEY_ID_SIZE+2+48,hmac,MAC_KEY_SIZE);
+        message[0] = SKEY_HANDSHAKE_1;
+        message[1] = size;
+    }
+    else
+    {
+        size = 32 + 48;
+        memcpy(message+48, hmac,MAC_KEY_SIZE);
+    }
+    print_buf(message,90);
+    return size;
+}
+
+void symmetricDecryptAuthenticate(sessionkey S, unsigned char * message, int data_len) 
+{
+    AES_KEY enc_key_128;
+    int payload_buf_num, buf_num; 
+    payload_buf_num = payload_length(message,1);
+    buf_num = payload_buf_length(payload_buf_num);
+    printf("data_len : %d %d\n",payload_buf_num, buf_num);
+    unsigned char received_tag[MAC_KEY_SIZE];
+    unsigned char result[MAC_KEY_SIZE];
+    unsigned int result_len = MAC_KEY_SIZE;
+    unsigned char *symmetric_data = malloc(payload_buf_num-MAC_KEY_SIZE);
+    unsigned char iv[IV_SIZE];
+    unsigned char *symmetric_enc = malloc(payload_buf_num-MAC_KEY_SIZE-IV_SIZE);
+
+    slice(symmetric_data,message,buf_num+1,buf_num+1+payload_buf_num-MAC_KEY_SIZE);
+    slice(received_tag,message,buf_num+1+payload_buf_num-MAC_KEY_SIZE,buf_num+1+payload_buf_num);
+
+    HMAC(EVP_sha256(),S.mac_key , MAC_KEY_SIZE, symmetric_data, payload_buf_num-MAC_KEY_SIZE, result, &result_len);
+    if(strncmp((char *)result, (char *) received_tag, sizeof(result)) == 0 )
+    {
+        printf("Hmac success!!! \n");
+    }
+    slice(iv,symmetric_data,0,IV_SIZE);
+    slice(symmetric_enc,symmetric_data,IV_SIZE,payload_buf_num-MAC_KEY_SIZE);
+    free(symmetric_data);
+    memset(message,0,data_len);    
+    if(AES_set_decrypt_key(S.cipher_key, CIPHER_KEY_SIZE*8, &enc_key_128) < 0){
+        printf("error");
+    }; 
+    
+    AES_cbc_encrypt(symmetric_enc, message,payload_buf_num-MAC_KEY_SIZE-IV_SIZE, &enc_key_128, iv, 0);
+
+    print_buf(message,32);
+    free(symmetric_enc);    
+
+
 }

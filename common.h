@@ -58,12 +58,37 @@
 #define KEY_ID_SIZE 8
 
 // int padding = RSA_PKCS1_PADDING;
-
+#define SESSION_KEY_EXPIRATION_TIME_SIZE 6
+#define BUF_LEN 128
 typedef struct
 {
     unsigned char nonce[NONCE_SIZE];
-    
+    unsigned char reply_nonce[NONCE_SIZE];
+    unsigned char dhParam[NONCE_SIZE];
 }nonce;
+
+typedef struct
+{
+    unsigned char receive_message[100];
+    unsigned char send_message[100];
+    int sock;
+    unsigned char mac_key[32];
+    unsigned char cipher_key[16];
+}message_arg;
+
+typedef struct
+{
+  unsigned char receive_message[200];
+  unsigned char send_message[200];
+  unsigned int receive_seq_num;
+  unsigned int send_seq_num;
+}save_message;
+
+typedef struct
+{
+long int st_time;
+
+}start_time;
 
 void nonce_generator(unsigned char * nonce_buf, int size_n) ;
 void slice(unsigned char * des_buf, unsigned char * buf, int a, int b );
@@ -72,6 +97,7 @@ int payload_length(unsigned char * message, int b);
 int put_in_buf(unsigned char *buffer, int a);
 void print_buf(unsigned char * print_buffer, int n);
 void print_string(unsigned char * buffer, int n, int b);
+int print_seq_num(unsigned char *buf);
 
 
 void num_key_to_buffer(unsigned char * buffer, int index, int n);
@@ -79,6 +105,7 @@ void Nonce_sort(unsigned char *buffer, size_t size);
 int save_senpup(unsigned char *buffer, int index, 
             unsigned char * s, size_t num_s, unsigned char * p, size_t num_p);
 int read_variable_UInt(unsigned char * read_buf,int offset, int byteLength);
+void parseHandshake(unsigned char * buff, nonce *A);
 
 
 

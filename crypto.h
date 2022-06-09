@@ -39,6 +39,8 @@ void sign_verify(unsigned char * dig, int dig_size, unsigned char *ret, int ret_
 void dist_key_decrypt(unsigned char * buffer, int index, distribution_key *D);
 void sess_key_decrypt(unsigned char *buf, int size, sessionkey S[], distribution_key *D);
 void get_sessionkey(unsigned char *buf, int index, int key_num, sessionkey S[]);
+int symmetricEncryptAuthenticate(sessionkey S, unsigned char * message, unsigned char * z, int data_len, int t); 
+void symmetricDecryptAuthenticate(sessionkey S, unsigned char * message, int data_len); 
 
 
 #endif

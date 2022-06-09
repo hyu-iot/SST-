@@ -1,6 +1,7 @@
 
 #include "secure_comm.h"
 
+pthread_t thread[10];
 
 void TCP_connection(int argc, char* argv[], unsigned char  *message, size_t size)
 {
@@ -45,7 +46,7 @@ void TCP_connection(int argc, char* argv[], unsigned char  *message, size_t size
             printf("%s <IP> <PORT>\n", argv[0]);
             exit(1);
         }
-        my_sock = socket(PF_INET,SOCK_STREAM,0); //1��
+        my_sock = socket(PF_INET,SOCK_STREAM,0); //1
         if(my_sock == -1)
             printf("socket error \n");
         
@@ -53,6 +54,22 @@ void TCP_connection(int argc, char* argv[], unsigned char  *message, size_t size
 
         if(connect(my_sock,(struct sockaddr*)&serv_addr,sizeof(serv_addr))==-1) //2
             printf("connect error\n");
-        Entity_Entity(message,size);
+        int length = Handshake1(message,size);
 
+        write(my_sock, message,length);
+
+        str_len = read(my_sock,message,size-1); // message
+        printf("str_len : %d\n", str_len);
+        length = Handshake2(message,str_len);
+
+        write(my_sock, message,length);
+
+
+        message_arg *multiple_arg;
+        multiple_arg = (message_arg *)malloc(sizeof(message_arg));
+        multiple_arg->sock = my_sock;
+        pthread_create(thread, NULL, &receive_message, (void *)multiple_arg);
+        send_message(my_sock);
+
+        free(multiple_arg);
 }
