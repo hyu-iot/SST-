@@ -5,6 +5,7 @@
 
 
 unsigned char message[1024];
+unsigned char sub_message[1024];
 
 int main(int argc, char* argv[])
 {

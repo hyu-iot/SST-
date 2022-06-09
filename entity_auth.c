@@ -4,11 +4,11 @@
 
 distribution_key dist_key; 
 sessionkey sess_key[10];
-nonce entity_nonce[3];
+nonce entity_nonce[3]; //TODO: 덮어씌우기
 start_time validity_time;
 save_message save_msg[100];
 
-int Entity_Auth(unsigned char * msg, size_t size)
+int entity_auth(unsigned char * msg, size_t size)
 {
     if(msg[0] == AUTH_HELLO)
     {
@@ -17,22 +17,22 @@ int Entity_Auth(unsigned char * msg, size_t size)
         unsigned char purpose[] = "{\"group\":\"Servers\"}";
         int num_key = 3;
 
-        Nonce_sort(msg,size);
+        nonce_sort(msg,size);
         nonce_generator(msg,NONCE_SIZE);
         slice(entity_nonce[0].nonce,msg,0,8);
         print_buf(entity_nonce[0].nonce,8);
-        num_key_to_buffer(msg, NONCE_SIZE*2,num_key);
-        int msg_len = save_senpup(msg,NONCE_SIZE*2+NUMKEY, sender,strlen(sender),purpose,strlen(purpose));
+        num_key_to_buffer(msg, NONCE_SIZE*2,num_key); // TODO: 
+        int msg_len = save_senpup(msg,NONCE_SIZE*2+NUMKEY_SIZE, sender,strlen(sender),purpose,strlen(purpose));
 
-        int total_len = encrypt_sign(msg,msg_len);
-        msg[0] = SESSION_KEY_REQ_IN_PUB_ENC;
+        int total_len = encrypt_sign(msg,msg_len); // TODO: int로 return하냐? 아니면 void로해서 pointer로 return하냐 ? (보낼 사이즈)
+        msg[0] = SESSION_KEY_REQ_IN_PUB_ENC; // TODO: 질문: msg shift하는게 효율적인가?
         return total_len;
     }
     else if(msg[0] == SESSION_KEY_RESP_WITH_DIST_KEY)
     {
         printf("\nreceived session key response with distribution key attached! \n");
-        int payload_len = payload_length(msg,1);
-        int buf_len = payload_buf_length(payload_len);
+        int payload_len = payload_length(msg+1,size);
+        int buf_len = payload_buf_length(payload_len); // TODO: 함수 두 개로 나누는게 좋은지? 아니면 struct로 만드는게 좋은지? 이유: 너무 많이 쓰임!
         printf("payload len: %d, buf len: %d\n",payload_len,buf_len );
         unsigned char *s1 = malloc(payload_len - DIST_ENC_SIZE);
         slice(s1,msg,DIST_ENC_SIZE+1+buf_len,1+buf_len+payload_len);
@@ -49,7 +49,7 @@ int Entity_Auth(unsigned char * msg, size_t size)
     }
 }
 
-int Handshake1(unsigned char * msg, size_t size)
+int handshake1(unsigned char * msg, size_t size)
 {
     memset(msg,0,size);
     unsigned char nonce_buf[NONCE_SIZE*2 +1];
@@ -61,16 +61,16 @@ int Handshake1(unsigned char * msg, size_t size)
     print_buf(sess_key[0].key_id,8);
     print_buf(sess_key[0].cipher_key, CIPHER_KEY_SIZE);
     print_buf(sess_key[0].mac_key, MAC_KEY_SIZE);
-    int a = symmetricEncryptAuthenticate(sess_key[0], msg, nonce_buf,sizeof(nonce_buf), 1);
+    int a = symm_enc_authenticate(sess_key[0], msg, nonce_buf,sizeof(nonce_buf), 1);
     print_buf(msg,a);
     return 1+1+a;
 }
 
-int Handshake2(unsigned char * msg, size_t size)
+int handshake2(unsigned char * msg, size_t size)
 {
     print_buf(msg,size);
-    symmetricDecryptAuthenticate(sess_key[0],msg,size);
-    parseHandshake(msg,&entity_nonce[2]);
+    symm_dec_authenticate(sess_key[0],msg,size);
+    parse_handshake(msg,&entity_nonce[2]);
     if(strncmp((char *)entity_nonce[1].nonce, (char *) entity_nonce[2].reply_nonce, NONCE_SIZE) == 0 )
     {
         printf("Nonce is the same \n");
@@ -81,7 +81,7 @@ int Handshake2(unsigned char * msg, size_t size)
     memset(nonce_buf,0,17);
     nonce_buf[0] = 2;
     memcpy(nonce_buf+1+NONCE_SIZE,entity_nonce[2].nonce,NONCE_SIZE);
-    int a = symmetricEncryptAuthenticate(sess_key[0],msg, nonce_buf, 17, 0);
+    int a = symm_enc_authenticate(sess_key[0],msg, nonce_buf, 17, 0);
     printf("size? %d \n", a);
     int b = payload_buf_length(a);
     memcpy(msg+1+b,msg,a);
@@ -128,16 +128,16 @@ void send_message(int my_sock, unsigned char * msg)
                 scanf("%s", message);
                 message_buf[7] += seq_num;
                 memcpy(message_buf+8,message,strlen(message));
-                print_buf(message_buf,32);
-                int a = symmetricEncryptAuthenticate(sess_key[0],msg,message_buf,sizeof(message_buf),0);
-                printf("size? %d \n", a);
+                // print_buf(message_buf,32);
+                int a = symm_enc_authenticate(sess_key[0],msg,message_buf,sizeof(message_buf),0);
+                // printf("size? %d \n", a);
                 int b = payload_buf_length(a);
                 memcpy(msg+1+b,msg,a);
                 put_in_buf(msg,a);
                 msg[0] = SECURE_COMM_MSG;
 
                 write(my_sock,msg,a+b+1);
-                
+
                 seq_num += 1;
             }
 
@@ -186,7 +186,7 @@ void *receive_message(void *multiple_arg)  /* read thread */
         }
         else
         {
-        symmetricDecryptAuthenticate(sess_key[0],buf_msg,str_len);
+        symm_dec_authenticate(sess_key[0],buf_msg,str_len);
         
         memset(save_msg[n].receive_message,0,sizeof(save_msg[n].receive_message));
         int seq_num = print_seq_num(buf_msg);

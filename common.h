@@ -50,7 +50,7 @@
 
 // Auth Hello //
 #define AUTH_ID_LEN 4
-#define NUMKEY 4
+#define NUMKEY_SIZE 4
 #define NONCE_SIZE 8
 
 // Session key Resp //
@@ -101,11 +101,11 @@ int print_seq_num(unsigned char *buf);
 
 
 void num_key_to_buffer(unsigned char * buffer, int index, int n);
-void Nonce_sort(unsigned char *buffer, size_t size);
+void nonce_sort(unsigned char *buffer, size_t size);
 int save_senpup(unsigned char *buffer, int index, 
             unsigned char * s, size_t num_s, unsigned char * p, size_t num_p);
 int read_variable_UInt(unsigned char * read_buf,int offset, int byteLength);
-void parseHandshake(unsigned char * buff, nonce *A);
+void parse_handshake(unsigned char * buff, nonce *A);
 
 
 

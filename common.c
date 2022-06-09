@@ -31,19 +31,21 @@ int payload_buf_length(int b)
     return n;
 }
 
-int payload_length(unsigned char * message, int index)
+
+int payload_length(unsigned char * message, int b)
 {
     int num = 0;
-    for (int i =0; i<4; i++)
+    for (int i =0; i<b; i++)
     {
-        num |= (message[index+i]& 127) <<(7*i);
-        if((message[index+i]&128) == 0 )
+        num |= (message[i]& 127) <<(7 * i);
+        if((message[i]&128) == 0 )
         {
             break;
         }
     }
     return num;
 }
+
 
 // buffer 만들어야 할 때!
 
@@ -89,13 +91,13 @@ int print_seq_num(unsigned char *buf)
 // payload를 버퍼로 옮길 때!!
 void num_key_to_buffer(unsigned char * buffer, int index, int n)
 {
-        for(int i=0 ; i < NUMKEY; i++)
+        for(int i=0 ; i < NUMKEY_SIZE; i++)
         {
-            buffer[index+i] |=  n >> 8*(NUMKEY-1-i);
+            buffer[index+i] |=  n >> 8*(NUMKEY_SIZE-1-i);
         }
 }
 
-void Nonce_sort(unsigned char *buffer, size_t size)
+void nonce_sort(unsigned char *buffer, size_t size)
 {
     int payload_len = payload_length(buffer,1);
     int buf_len = payload_buf_length(payload_len);
@@ -128,7 +130,7 @@ int read_variable_UInt(unsigned char * read_buf,int offset, int byteLength)
     return num; 
 }
 
-void parseHandshake(unsigned char * buff, nonce *A) {
+void parse_handshake(unsigned char * buff, nonce *A) {
 
     if ((buff[0] & 1) != 0) {
         // nonce exists

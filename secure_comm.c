@@ -30,7 +30,7 @@ void TCP_connection(int argc, char* argv[], unsigned char  *message, size_t size
             printf("str_len : %d\n",str_len);
             print_buf(message,str_len);
 
-            int buffer_len = Entity_Auth(message, size);
+            int buffer_len = entity_auth(message, size);
             if(message[0] == SESSION_KEY_REQ_IN_PUB_ENC)
             {
                 write(my_sock, message, buffer_len);
@@ -54,13 +54,13 @@ void TCP_connection(int argc, char* argv[], unsigned char  *message, size_t size
 
         if(connect(my_sock,(struct sockaddr*)&serv_addr,sizeof(serv_addr))==-1) //2
             printf("connect error\n");
-        int length = Handshake1(message,size);
+        int length = handshake1(message,size);
 
         write(my_sock, message,length);
 
         str_len = read(my_sock,message,size-1); // message
         printf("str_len : %d\n", str_len);
-        length = Handshake2(message,str_len);
+        length = handshake2(message,str_len);
 
         write(my_sock, message,length);
 

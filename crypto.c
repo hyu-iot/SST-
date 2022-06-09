@@ -3,7 +3,7 @@
 
 
 
-void print_Last_error(char *msg)
+void print_last_error(char *msg)
 {
     char * err = malloc(130);;
     ERR_load_crypto_strings();
@@ -17,18 +17,20 @@ int public_encrypt(unsigned char * data,int data_len, unsigned char *encrypted)
     FILE *pemFile = fopen("../SST-/sst/iotauth/entity/auth_certs/Auth101EntityCert.pem", "rb");
     X509 *cert = PEM_read_X509(pemFile, NULL, NULL, NULL );
     EVP_PKEY *pkey = X509_get_pubkey(cert);
+
     if (pkey == NULL){
-        print_Last_error("public key getting fail");
+        print_last_error("public key getting fail");
     }
     int id = EVP_PKEY_id(pkey);
     if ( id != EVP_PKEY_RSA ) {
-        print_Last_error("is not RSA Encryption file");
+        print_last_error("is not RSA Encryption file");
     }
     RSA *rsa = EVP_PKEY_get1_RSA(pkey);
     if ( rsa == NULL ) {
-        print_Last_error("EVP_PKEY_get1_RSA fail");
+        print_last_error("EVP_PKEY_get1_RSA fail");
     }
     int result = RSA_public_encrypt(data_len,data,encrypted,rsa,1);
+    // free 
     return result;
 }
 
@@ -42,7 +44,7 @@ int private_decrypt(unsigned char * enc_data,int data_len, unsigned char *decryp
 }
 
 
-void make_degest_msg(unsigned char *dig_enc, unsigned char *encrypted ,int encrypted_length)
+void make_digest_msg(unsigned char *dig_enc, unsigned char *encrypted ,int encrypted_length)
 {
     SHA256_CTX ctx;
     SHA256_Init(&ctx);
@@ -52,14 +54,14 @@ void make_degest_msg(unsigned char *dig_enc, unsigned char *encrypted ,int encry
 // Auth hello
 int encrypt_sign(unsigned char *message, size_t size)
 {
-    unsigned char encrypted[2048];
+    unsigned char encrypted[2048]; // embedded system에서는 문제가 될 수 있음 
     unsigned char sigret [1024];
     unsigned char dig_enc[SHA256_DIGEST_LENGTH];
     unsigned int  sigret_Length;
 
     int encrypted_length= public_encrypt(message,100,encrypted);
     printf("enc length: %d \n",encrypted_length);
-    make_degest_msg(dig_enc, encrypted, encrypted_length);
+    make_digest_msg(dig_enc, encrypted, encrypted_length);
     FILE *keyfile = fopen("../SST-/sst/iotauth/entity/credentials/keys/net1/Net1.ClientKey.pem", "rb"); 
     RSA *rsa = PEM_read_RSAPrivateKey(keyfile, NULL, NULL, NULL);
     int sign_result = RSA_sign(NID_sha256, dig_enc,SHA256_DIGEST_LENGTH,
@@ -73,7 +75,7 @@ int encrypt_sign(unsigned char *message, size_t size)
     int buf_len = put_in_buf(message, encrypted_length + sigret_Length);
     memcpy(message+1+buf_len,encrypted, encrypted_length);
     memcpy(message+1+buf_len+encrypted_length ,sigret, sigret_Length);
-    return 1+ buf_len +encrypted_length +sigret_Length;
+    return 1+ buf_len +encrypted_length +sigret_Length; 
 }
 
 void sign_verify(unsigned char * dig, int dig_size, unsigned char *ret, int ret_size)
@@ -82,15 +84,15 @@ void sign_verify(unsigned char * dig, int dig_size, unsigned char *ret, int ret_
     X509 *cert = PEM_read_X509( pemFile, NULL, NULL, NULL );
     EVP_PKEY *pkey = X509_get_pubkey(cert);
     if (pkey == NULL){
-        print_Last_error("public key getting fail");
+        print_last_error("public key getting fail");
     }
     int id = EVP_PKEY_id(pkey);
     if ( id != EVP_PKEY_RSA ) {
-        print_Last_error("is not RSA Encryption file");
+        print_last_error("is not RSA Encryption file");
     }
     RSA *rsa1 = EVP_PKEY_get1_RSA(pkey);
     if ( rsa1 == NULL ) {
-        print_Last_error("EVP_PKEY_get1_RSA fail");
+        print_last_error("EVP_PKEY_get1_RSA fail");
     } 
 
     int verify_result = RSA_verify(NID_sha256, dig ,dig_size,
@@ -108,7 +110,7 @@ void dist_key_decrypt(unsigned char * buffer, int index, distribution_key *D)
     slice(ret_data, buffer, index, index+256);
     slice(ret_signiture,buffer,index+256,index+512);
     // verify the signiture data
-    make_degest_msg(dig_enc , ret_data,sizeof(ret_data));
+    make_digest_msg(dig_enc , ret_data,sizeof(ret_data));
     sign_verify(dig_enc,SHA256_DIGEST_LENGTH, ret_signiture, sizeof(ret_signiture));
  
     // decrypt the encrypted data
@@ -164,9 +166,10 @@ void sess_key_decrypt(unsigned char *buf, int size, sessionkey S[], distribution
     };
     AES_cbc_encrypt( symmetric_enc, buf,size-MAC_KEY_SIZE-IV_SIZE, &enc_key_128, iv, 0);
     free(symmetric_enc);
+    printf("ㅁㄴㅇㅁㄴㅇㅁㄴㅇㅁㄴㅇㅁㄴㅇ\n");
     print_buf(buf,256);
     //buf 8 : entity nonce
-    int payload_len = payload_length(buf,NONCE_SIZE);
+    int payload_len = payload_length(buf+NONCE_SIZE,size);
     int buf_len = payload_buf_length(payload_len);
     printf("payload len: %d, buf len: %d\n",payload_len,buf_len );
     printf("Crypto spec: ");
@@ -205,7 +208,7 @@ void get_sessionkey(unsigned char *buf, int index, int key_num, sessionkey S[])
     }
 }
 
-int symmetricEncryptAuthenticate(sessionkey S, unsigned char * message, unsigned char * z, int data_len, int t) 
+int symm_enc_authenticate(sessionkey S, unsigned char * message, unsigned char * z, int data_len, int t) 
 {
     unsigned char iv[IV_SIZE];
     unsigned char iv2[IV_SIZE];
@@ -213,11 +216,11 @@ int symmetricEncryptAuthenticate(sessionkey S, unsigned char * message, unsigned
     //// Encrypt 후에 iv가 바뀌어서 이를 미리 저장해줘야 함!!
     memcpy(message,iv,16);
 
-    unsigned char enc[32];
+    unsigned char enc[32]; //TODO: 질문! 얼마나 설정해야 하는지
     AES_KEY enc_key_128;
-    print_buf(message,32);
-    print_buf(S.cipher_key,CIPHER_KEY_SIZE);
-    print_buf(S.mac_key,MAC_KEY_SIZE);
+    // print_buf(message,32);
+    // print_buf(S.cipher_key,CIPHER_KEY_SIZE);
+    // print_buf(S.mac_key,MAC_KEY_SIZE);
     if(AES_set_encrypt_key(S.cipher_key, 16*8, &enc_key_128) < 0)
     {
         printf("error!!!");
@@ -225,7 +228,7 @@ int symmetricEncryptAuthenticate(sessionkey S, unsigned char * message, unsigned
     AES_cbc_encrypt( z, enc, data_len, &enc_key_128, iv, 1); 
 
     memcpy(message+IV_SIZE,enc,32);
-    print_buf(iv,16);
+    // print_buf(iv,16);
     unsigned char hmac[MAC_KEY_SIZE];
     unsigned int hmac_size = MAC_KEY_SIZE;
     HMAC(EVP_sha256(),S.mac_key , MAC_KEY_SIZE,
@@ -245,15 +248,15 @@ int symmetricEncryptAuthenticate(sessionkey S, unsigned char * message, unsigned
         size = 32 + 48;
         memcpy(message+48, hmac,MAC_KEY_SIZE);
     }
-    print_buf(message,90);
+    // print_buf(message,90);
     return size;
 }
 
-void symmetricDecryptAuthenticate(sessionkey S, unsigned char * message, int data_len) 
+void symm_dec_authenticate(sessionkey S, unsigned char * message, int data_len) 
 {
     AES_KEY enc_key_128;
     int payload_buf_num, buf_num; 
-    payload_buf_num = payload_length(message,1);
+    payload_buf_num = payload_length(message+1,data_len);
     buf_num = payload_buf_length(payload_buf_num);
     printf("data_len : %d %d\n",payload_buf_num, buf_num);
     unsigned char received_tag[MAC_KEY_SIZE];
