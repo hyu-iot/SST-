@@ -69,7 +69,7 @@ void TCP_connection(int argc, char* argv[], unsigned char  *message, size_t size
         multiple_arg = (message_arg *)malloc(sizeof(message_arg));
         multiple_arg->sock = my_sock;
         pthread_create(thread, NULL, &receive_message, (void *)multiple_arg);
-        send_message(my_sock);
+        send_message(my_sock,message);
 
         free(multiple_arg);
 }

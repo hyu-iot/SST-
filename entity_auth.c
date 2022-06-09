@@ -89,7 +89,7 @@ int Handshake2(unsigned char * msg, size_t size)
     msg[0] = SKEY_HANDSHAKE_3;
     return 1+b+a;
 }
-void send_message(int my_sock)
+void send_message(int my_sock, unsigned char * msg)
 {
     unsigned int seq_num = 0;
     validity_time.st_time = 0;
@@ -122,10 +122,23 @@ void send_message(int my_sock)
             else
             {
                 unsigned char message[32]; 
+                unsigned char message_buf[32]; 
                 memset(message,0,32);
+                memset(message_buf,0,32);
                 scanf("%s", message);
+                message_buf[7] += seq_num;
+                memcpy(message_buf+8,message,strlen(message));
+                print_buf(message_buf,32);
+                int a = symmetricEncryptAuthenticate(sess_key[0],msg,message_buf,sizeof(message_buf),0);
+                printf("size? %d \n", a);
+                int b = payload_buf_length(a);
+                memcpy(msg+1+b,msg,a);
+                put_in_buf(msg,a);
+                msg[0] = SECURE_COMM_MSG;
 
+                write(my_sock,msg,a+b+1);
                 
+                seq_num += 1;
             }
 
         }
