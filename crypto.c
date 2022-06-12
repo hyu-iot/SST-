@@ -12,7 +12,7 @@ void print_last_error(char *msg)
     free(err);
 }
 
-int public_encrypt(unsigned char * data,int data_len, unsigned char *encrypted) 
+int public_encrypt(unsigned char * data,int data_len, unsigned char *encrypted, int padding) 
 {
     FILE *pemFile = fopen("../SST-/sst/iotauth/entity/auth_certs/Auth101EntityCert.pem", "rb");
     X509 *cert = PEM_read_X509(pemFile, NULL, NULL, NULL );
@@ -29,7 +29,7 @@ int public_encrypt(unsigned char * data,int data_len, unsigned char *encrypted)
     if ( rsa == NULL ) {
         print_last_error("EVP_PKEY_get1_RSA fail");
     }
-    int result = RSA_public_encrypt(data_len,data,encrypted,rsa,1);
+    int result = RSA_public_encrypt(data_len,data,encrypted,rsa,padding);
     // free 
     return result;
 }

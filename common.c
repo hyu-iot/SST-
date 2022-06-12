@@ -30,8 +30,6 @@ int payload_buf_length(int b)
     }
     return n;
 }
-
-
 int payload_length(unsigned char * message, int b)
 {
     int num = 0;

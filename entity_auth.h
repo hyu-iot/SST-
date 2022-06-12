@@ -1,7 +1,6 @@
 #ifndef ENTITY_AUTH
 #define ENTITY_AUTH
 
-#include "common.h"
 #include "crypto.h"
 
 int entity_auth(unsigned char * message, size_t size);
